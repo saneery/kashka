@@ -1,21 +1,7 @@
-# Kashka
+# KafkaRest
 
-**TODO: Add description**
+Elixir kafka rest proxy client https://docs.confluent.io/current/kafka-rest/index.html
 
-## Installation
+## Testing
 
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `kashka` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:kashka, "~> 0.1.0"}
-  ]
-end
-```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at [https://hexdocs.pm/kashka](https://hexdocs.pm/kashka).
-
+Run zookeeper, kafka and kafka rest proxy with `docker-compose up`. Then run `mix test`

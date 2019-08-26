@@ -1,30 +1,33 @@
-defmodule Kashka.MintHelper do
-  @connect_opts [transport_opts: [verify: :verify_none]]
+defmodule Kashka.Http do
+  @https_connect_opts [transport_opts: [verify: :verify_none]]
+
   alias Mint.HTTP
 
   require Logger
 
+  @type t :: {URI.t(), Mint.HTTP.t()} | URI.t() | String.t()
+
+  @spec close(t()) :: :ok
   def close({_, conn}) do
     {:ok, _} = HTTP.close(conn)
     :ok
   end
 
+  @spec request(t(), String.t(), String.t(), Mint.Types.headers(), iodata()) ::
+          {:ok, t(), non_neg_integer(), iodata()}
   def request(state, method, path, headers, body, timeout \\ 20000)
 
   def request(uri, method, path, headers, body, timeout) when is_binary(uri) do
     request(URI.parse(uri), method, path, headers, body, timeout)
   end
-  def request(%URI{} = uri, method, path, headers, body, timeout) do
-    request({uri, nil}, method, path, headers, body, timeout)
-  end
 
-  def request({uri, nil}, method, path, headers, body, timeout) do
+  def request(%URI{} = uri, method, path, headers, body, timeout) do
     request({uri, open(uri)}, method, path, headers, body, timeout)
   end
 
-  def request({uri, conn}, method, path, headers, body, timeout) do
+  def request({%URI{} = uri, conn}, method, path, headers, body, timeout) do
     full_path = Path.join(uri.path, path)
-    Logger.debug("Send #{method} to #{full_path} with body #{body}")
+    Logger.debug(fn -> "Send #{method} to #{full_path} with body #{body}" end)
     headers = [{"Host", uri.authority} | headers]
 
     case HTTP.request(conn, method, full_path, headers, body) do
@@ -34,9 +37,10 @@ defmodule Kashka.MintHelper do
         {:ok, {uri, conn}, status, body}
 
       {:error, _conn, %Mint.HTTPError{reason: :closed}} ->
-        request({uri, nil}, method, path, headers, body, timeout)
+        request(uri, method, path, headers, body, timeout)
+
       {:error, _conn, %Mint.TransportError{reason: :closed}} ->
-        request({uri, nil}, method, path, headers, body, timeout)
+        request(uri, method, path, headers, body, timeout)
     end
   end
 
@@ -49,18 +53,18 @@ defmodule Kashka.MintHelper do
         conn
 
       "https" ->
-        {:ok, conn} = HTTP.connect(:https, uri.host, uri.port, @connect_opts)
+        {:ok, conn} = HTTP.connect(:https, uri.host, uri.port, @https_connect_opts)
         conn
     end
   end
 
-  def get_status_and_body(response) do
+  defp get_status_and_body(response) do
     with {:ok, code} <- get_status(response) do
       {:ok, code, get_data(response)}
     end
   end
 
-  def receive_all_response(conn, timeout \\ 20000, data \\ []) do
+  defp receive_all_response(conn, timeout \\ 20000, data \\ []) do
     receive do
       {:ssl, _, _} = message ->
         process_data(conn, message, data, timeout)
