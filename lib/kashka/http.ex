@@ -13,7 +13,7 @@ defmodule Kashka.Http do
     :ok
   end
 
-  @spec request(t(), String.t(), String.t(), Mint.Types.headers(), iodata()) ::
+  @spec request(t(), String.t(), String.t(), Mint.Types.headers(), iodata(), non_neg_integer) ::
           {:ok, t(), non_neg_integer(), iodata()}
   def request(state, method, path, headers, body, timeout \\ 20000)
 
@@ -64,7 +64,7 @@ defmodule Kashka.Http do
     end
   end
 
-  defp receive_all_response(conn, timeout \\ 20000, data \\ []) do
+  defp receive_all_response(conn, timeout, data \\ []) do
     receive do
       {:ssl, _, _} = message ->
         process_data(conn, message, data, timeout)

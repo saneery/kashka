@@ -20,12 +20,12 @@ defmodule Kashka.KafkaTest do
   end
 
   test "produce json", %{topic: topic} do
-    assert {:ok, conn} = Kafka.produce_json(@url, topic, [%{value: %{foo: "bar"}}])
+    assert {:ok, conn} = Kafka.produce(@url, topic, [%{value: %{foo: "bar"}}])
     assert :ok == Kafka.close(conn)
   end
 
   test "produce_binary", %{topic: topic} do
-    assert {:ok, conn} = Kafka.produce_json(@url, topic, [%{value: "123456"}])
+    assert {:ok, conn} = Kafka.produce(@url, topic, [%{key: "123", value: "123456"}])
     assert :ok == Kafka.close(conn)
   end
 
@@ -38,7 +38,7 @@ defmodule Kashka.KafkaTest do
 
   describe "subscribed json consumer" do
     setup %{conn: conn, topic: topic} do
-      assert {:ok, conn} = Kafka.produce_json(conn, topic, [%{value: %{foo: "bar"}}])
+      assert {:ok, conn} = Kafka.produce(conn, topic, [%{value: %{foo: "bar"}}])
 
       assert {:ok, conn, %{"base_uri" => uri}} =
                Kafka.create_consumer(conn, "consumer_group", %{name: "my", format: "json"})
@@ -73,7 +73,7 @@ defmodule Kashka.KafkaTest do
       {:ok, conn, _} = Kafka.get_records(conn, %{timeout: 0})
       {:ok, conn} = Kafka.commit(conn)
 
-      {:ok, c} = Kafka.produce_json(@url, topic, [%{value: %{foo: "bar"}}])
+      {:ok, c} = Kafka.produce(@url, topic, [%{value: %{foo: "bar"}}])
       Kafka.close(c)
 
       {:ok, _conn, [record]} = Kafka.get_records(conn, %{timeout: 0})
@@ -90,7 +90,7 @@ defmodule Kashka.KafkaTest do
 
   def get_new_topic(conn, prefix \\ "test") do
     regex = Regex.compile!(prefix <> "(\\d+)")
-    {:ok, conn, topics} = Kafka.topics(@url)
+    {:ok, conn, topics} = Kafka.topics(conn)
 
     last_number =
       topics
@@ -116,21 +116,21 @@ defmodule Kashka.KafkaTest do
                Kafka.create_consumer(conn, "consumer_group", %{name: "my", format: "binary"})
 
       {:ok, conn} = Kafka.subscribe(uri, [topic])
-      {:ok, conn, []} = Kafka.get_binary_records(conn, %{timeout: 0})
+      {:ok, conn, []} = Kafka.get_records(conn, %{timeout: 0}, :binary)
       [conn: conn]
     end
 
     test "get_records binary", %{conn: conn, topic: topic} do
-      {:ok, conn, _} = Kafka.get_binary_records(conn, %{timeout: 0})
+      {:ok, conn, _} = Kafka.get_records(conn, %{timeout: 0}, :binary)
       {:ok, conn} = Kafka.commit(conn)
 
-      {:ok, c} = Kafka.produce_binary(@url, topic, [%{value: "123"}])
+      {:ok, c} = Kafka.produce(@url, topic, [%{key: "321", value: "123"}], :binary)
       Kafka.close(c)
 
-      {:ok, _conn, [record]} = Kafka.get_binary_records(conn, %{timeout: 0})
+      {:ok, _conn, [record]} = Kafka.get_records(conn, %{timeout: 0}, :binary)
 
       assert %{
-               "key" => nil,
+               "key" => "321",
                "offset" => _,
                "partition" => 0,
                "topic" => ^topic,

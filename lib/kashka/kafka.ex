@@ -10,12 +10,11 @@ defmodule Kashka.Kafka do
   alias Kashka.Http
   require Logger
 
-  @type http_error :: {:error, :http, non_neg_integer(), iodata()}
+  @type http_error :: {:error, :http, code :: non_neg_integer(), iodata()}
 
+  @spec topics(Http.t()) :: {:ok, Http.t(), %{}} | http_error()
   def topics(conn) do
-    h = [{"Accept", "application/vnd.kafka.v2+json"}]
-
-    with {:ok, conn, data} <- request(conn, "GET", "topics", h, "") do
+    with {:ok, conn, data} <- request(conn, "GET", "topics", [@accept], "") do
       {:ok, conn, Jason.decode!(data)}
     end
   end
@@ -24,27 +23,17 @@ defmodule Kashka.Kafka do
   def offsets(conn, partitions) do
     data = Jason.encode!(%{partitions: partitions})
 
-    case Http.request(conn, "GET", "offsets", [@accept], data, 20000) do
-      {:ok, conn, 200, data} ->
-        offsets = Jason.decode!(data) |> Map.get("offsets")
-        {:ok, conn, offsets}
-
-      {:ok, conn, code, data} ->
-        close(conn)
-        {:error, :http, code, data}
+    with {:ok, conn, data} <- request(conn, "GET", "offsets", [@accept], data) do
+      offsets = Jason.decode!(data) |> Map.get("offsets")
+      {:ok, conn, offsets}
     end
   end
 
   @spec assignments(Http.t()) :: {:ok, Http.t(), %{}} | http_error()
   def assignments(conn) do
-    case Http.request(conn, "GET", "assignments", [@accept], "", 20000) do
-      {:ok, conn, 200, data} ->
-        partitions = Jason.decode!(data) |> Map.get("partitions")
-        {:ok, conn, partitions}
-
-      {:ok, conn, code, data} ->
-        close(conn)
-        {:error, :http, code, data}
+    with {:ok, conn, data} <- request(conn, "GET", "assignments", [@accept], "") do
+      partitions = Jason.decode!(data) |> Map.get("partitions")
+      {:ok, conn, partitions}
     end
   end
 
@@ -52,13 +41,8 @@ defmodule Kashka.Kafka do
   def positions_end(conn, partitions) do
     data = Jason.encode!(%{partitions: partitions})
 
-    case Http.request(conn, "POST", "positions/end", [@content], data, 20000) do
-      {:ok, conn, 200, _data} ->
-        {:ok, conn}
-
-      {:ok, conn, code, data} ->
-        close(conn)
-        {:error, :http, code, data}
+    with {:ok, conn, _data} <- request(conn, "POST", "positions/end", [@content], data) do
+      {:ok, conn}
     end
   end
 
@@ -70,13 +54,15 @@ defmodule Kashka.Kafka do
         _ -> Jason.encode!(opts)
       end
 
-    with {:ok, conn, _data} <- request(conn, "POST", "offsets", [@content], body, 20000) do
+    with {:ok, conn, _data} <- request(conn, "POST", "offsets", [@content], body) do
       {:ok, conn}
     end
   end
 
-  @spec produce_json(Http.t(), String.t(), [%{}]) :: {:ok, Http.t()} | http_error()
-  def produce_json(conn, topic, records) when is_list(records) do
+  @spec produce(Http.t(), String.t(), [%{}], :json | :binary) :: {:ok, Http.t()} | http_error()
+  def produce(conn, topic, records, format \\ :json)
+
+  def produce(conn, topic, records, :json) when is_list(records) do
     path = Path.join(["topics", topic])
     data = Jason.encode!(%{records: records})
 
@@ -85,13 +71,12 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec produce_binary(Http.t(), String.t(), [%{}]) :: {:ok, Http.t()} | http_error()
-  def produce_binary(conn, topic, records) when is_list(records) do
+  def produce(conn, topic, records, :binary) when is_list(records) do
     path = Path.join(["topics", topic])
 
     records =
       Enum.map(records, fn e ->
-        %{e | value: :base64.encode(e.value)}
+        %{e | value: :base64.encode(e.value), key: :base64.encode(e.key)}
       end)
 
     data = Jason.encode!(%{records: records})
@@ -101,25 +86,28 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec get_records(Http.t(), %{}) :: {:ok, Http.t(), [%{}]} | http_error()
-  def get_records(conn, opts) do
+  @spec get_records(Http.t(), %{}, :json | :binary) :: {:ok, Http.t(), [%{}]} | http_error()
+  def get_records(conn, opts, format \\ :json)
+
+  def get_records(conn, opts, :json) do
     query = URI.encode_query(opts)
 
-    with {:ok, conn, data} <- request(conn, "GET", "records?#{query}", [@accept_json], "", 20000) do
+    with {:ok, conn, data} <- request(conn, "GET", "records?#{query}", [@accept_json], "") do
       {:ok, conn, Jason.decode!(data)}
     end
   end
 
-  @spec get_binary_records(Http.t(), %{}) :: {:ok, Http.t(), [%{}]} | http_error()
-  def get_binary_records(conn, opts) do
+  def get_records(conn, opts, :binary) do
     query = URI.encode_query(opts)
 
     with {:ok, conn, json} <-
-           request(conn, "GET", "records?#{query}", [@accept_binary], "", 20000) do
+           request(conn, "GET", "records?#{query}", [@accept_binary], "") do
       data =
         json
         |> Jason.decode!()
-        |> Enum.map(fn e -> %{e | "value" => :base64.decode(e["value"])} end)
+        |> Enum.map(fn e ->
+          %{e | "value" => :base64.decode(e["value"]), "key" => :base64.decode(e["key"])}
+        end)
 
       {:ok, conn, data}
     end
@@ -174,10 +162,10 @@ defmodule Kashka.Kafka do
     Http.close(conn)
   end
 
-  @spec request(Http.t(), String.t(), String.t(), Mint.Types.headers(), iodata(), non_neg_integer) ::
+  @spec request(Http.t(), String.t(), String.t(), Mint.Types.headers(), iodata()) ::
           {:ok, Http.t(), iodata()} | http_error()
-  defp request(conn, method, path, headers, body, timeout \\ 20000) do
-    case Http.request(conn, method, path, headers, body, timeout) do
+  defp request(conn, method, path, headers, body) do
+    case Http.request(conn, method, path, headers, body, http_timeout()) do
       {:ok, conn, code, data} when code >= 200 and code < 300 ->
         {:ok, conn, data}
 
@@ -185,5 +173,9 @@ defmodule Kashka.Kafka do
         :ok = close(conn)
         {:error, :http, code, data}
     end
+  end
+
+  defp http_timeout() do
+    Application.get_env(:kashka, :http_timeout, 20000)
   end
 end
