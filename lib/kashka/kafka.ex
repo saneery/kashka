@@ -113,8 +113,8 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec create_consumer(Kashka.Http.t(), String.t(), %{}) ::
-          {:ok, Kashka.Http.t(), %{}} | {:error, :exists} | http_error()
+  @spec create_consumer(Kashka.Http.t(), String.t(), map()) ::
+          {:ok, Kashka.Http.t(), map()} | {:error, :exists} | http_error()
   def create_consumer(conn, consumer_group, opts) do
     body = Jason.encode!(opts)
     path = Path.join(["consumers", consumer_group])
