@@ -76,7 +76,9 @@ defmodule Kashka.Kafka do
 
     records =
       Enum.map(records, fn e ->
-        %{e | value: :base64.encode(e.value), key: :base64.encode(e.key)}
+        e
+        |> Map.update(:value, nil, &Base.encode64/1)
+        |> Map.update(:key, nil, &Base.encode64/1)
       end)
 
     data = Jason.encode!(%{records: records})
@@ -106,7 +108,9 @@ defmodule Kashka.Kafka do
         json
         |> Jason.decode!()
         |> Enum.map(fn e ->
-          %{e | "value" => :base64.decode(e["value"]), "key" => :base64.decode(e["key"])}
+          e
+          |> Map.update("value", nil, &decode64/1)
+          |> Map.update("key", nil, &decode64/1)
         end)
 
       {:ok, conn, data}
@@ -178,4 +182,7 @@ defmodule Kashka.Kafka do
   defp http_timeout() do
     Application.get_env(:kashka, :http_timeout, 20000)
   end
+
+  defp decode64(nil), do: nil
+  defp decode64(str), do: Base.decode64!(str)
 end

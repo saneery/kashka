@@ -48,9 +48,9 @@ defmodule Kashka.GenConsumer do
 
   @impl true
   def terminate(reason, st) do
-    Logger.debug("Going to terminate #{st.name} with reason #{inspect(reason)}")
+    Logger.info("Going to terminate #{st.name} with reason #{inspect(reason)}")
     {:ok, conn} = Kafka.delete_consumer(st.conn)
-    Logger.debug("Consumer #{st.name} deleted successfully")
+    Logger.info("Consumer #{st.name} deleted successfully")
     {:noreply, %{st | conn: conn}}
   end
 
@@ -59,7 +59,7 @@ defmodule Kashka.GenConsumer do
     Logger.debug("Going to request records")
     # timeout = state.opts.records_opts.timeout
     # TODO
-    {:ok, conn, records} = Kafka.get_records(state.conn, state.opts.records_opts)
+    {:ok, conn, records} = Kafka.get_records(state.conn, state.opts.records_opts, state.opts.format)
     Logger.debug("#{length(records)} received")
 
     {:ok, conn, internal_state} =
@@ -69,7 +69,7 @@ defmodule Kashka.GenConsumer do
   end
 
   def handle_info(message, state) do
-    Logger.debug("Unknown message #{inspect(message)}")
+    Logger.info("Unknown message #{inspect(message)}")
     {:noreply, state, 0}
   end
 
@@ -99,17 +99,14 @@ defmodule Kashka.GenConsumer do
   defp load_defaults(opts) do
     opts = Map.new(opts)
 
-    records_opts =
-      Map.get(opts, :records_opts, %{})
-      |> Map.merge(%{max_bytes: 100_000, timeout: 1000})
+    format = Map.get(opts, :format, :binary)
+    records_opts = Map.merge(%{max_bytes: 100_000, timeout: 1000}, Map.get(opts, :records_opts, %{}))
+    consumer_opts = Map.get(opts, :consumer_opts, %{}) |> Map.merge(%{format: format})
 
     opts
     |> Map.put(:records_opts, records_opts)
+    |> Map.put(:consumer_opts, consumer_opts)
+    |> Map.put(:format, format)
     |> Map.put_new(:name, random_string(10))
-    |> Map.put_new(:consumer_opts, %{
-      format: "json",
-      "auto.offset.reset": "earliest",
-      "auto.commit.enable": false
-    })
   end
 end
