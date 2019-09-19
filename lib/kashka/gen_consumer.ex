@@ -15,9 +15,9 @@ defmodule Kashka.GenConsumer do
           | any()
         ]
 
-  @callback init(opts :: opts()) :: any()
+  @callback init(conn :: Kashka.Http.t(), opts :: opts()) :: {:ok, Kashk.Http.t(), any()}
   @callback handle_message_set(conn :: Kashka.Http.t(), state :: any(), message_set :: [map()]) ::
-              any()
+              {:ok, Kashk.Http.t(), any()}
 
   @type state() :: %__MODULE__{
           name: String.t(),
@@ -41,8 +41,9 @@ defmodule Kashka.GenConsumer do
     state = %__MODULE__{conn: opts.url, name: name, opts: opts}
     {:ok, base_uri} = create_consumer(state)
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
+    {:ok, conn, internal_state} = opts.module.init(conn, opts)
 
-    st = %{state | conn: conn, internal_state: opts.module.init(opts)}
+    st = %{state | conn: conn, internal_state: internal_state}
     {:ok, st, 0}
   end
 
@@ -59,7 +60,9 @@ defmodule Kashka.GenConsumer do
     Logger.debug("Going to request records")
     # timeout = state.opts.records_opts.timeout
     # TODO
-    {:ok, conn, records} = Kafka.get_records(state.conn, state.opts.records_opts, state.opts.format)
+    {:ok, conn, records} =
+      Kafka.get_records(state.conn, state.opts.records_opts, state.opts.format)
+
     Logger.debug("#{length(records)} received")
 
     {:ok, conn, internal_state} =
@@ -100,7 +103,10 @@ defmodule Kashka.GenConsumer do
     opts = Map.new(opts)
 
     format = Map.get(opts, :format, :binary)
-    records_opts = Map.merge(%{max_bytes: 100_000, timeout: 1000}, Map.get(opts, :records_opts, %{}))
+
+    records_opts =
+      Map.merge(%{max_bytes: 100_000, timeout: 1000}, Map.get(opts, :records_opts, %{}))
+
     consumer_opts = Map.get(opts, :consumer_opts, %{}) |> Map.merge(%{format: format})
 
     opts

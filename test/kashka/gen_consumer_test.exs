@@ -11,8 +11,8 @@ defmodule Kashka.GenConsumerTest do
   defmodule TestModule do
     @behaviour Kashka.GenConsumer
 
-    def init(_) do
-      :state
+    def init(conn, _) do
+      {:ok, conn,   :state}
     end
 
     def handle_message_set(conn, :state, message_set) do
