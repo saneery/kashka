@@ -63,7 +63,7 @@ defmodule Kashka.GenConsumer do
     {:ok, conn, records} =
       Kafka.get_records(state.conn, state.opts.records_opts, state.opts.format)
 
-    Logger.debug("#{length(records)} received")
+    Logger.debug("Consumer #{state.name} received #{length(records)} records")
 
     {:ok, conn, internal_state} =
       state.opts.module.handle_message_set(conn, state.internal_state, records)
