@@ -19,6 +19,8 @@ defmodule Kashka.GenConsumer do
   @callback handle_message_set(conn :: Kashka.Http.t(), state :: any(), message_set :: [map()]) ::
               {:ok, Kashk.Http.t(), any()}
 
+  @optional_callbacks init: 2
+
   @type state() :: %__MODULE__{
           name: String.t(),
           conn: Kashka.Http.t(),
@@ -41,7 +43,13 @@ defmodule Kashka.GenConsumer do
     state = %__MODULE__{conn: opts.url, name: name, opts: opts}
     {:ok, base_uri} = create_consumer(state)
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
-    {:ok, conn, internal_state} = opts.module.init(conn, opts)
+
+    {:ok, conn, internal_state} =
+      if function_exported?(opts.module, :init, 2) do
+        opts.module.init(conn, opts)
+      else
+        {:ok, conn, opts}
+      end
 
     st = %{state | conn: conn, internal_state: internal_state}
     {:ok, st, 0}

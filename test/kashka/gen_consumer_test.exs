@@ -12,7 +12,7 @@ defmodule Kashka.GenConsumerTest do
     @behaviour Kashka.GenConsumer
 
     def init(conn, _) do
-      {:ok, conn,   :state}
+      {:ok, conn, :state}
     end
 
     def handle_message_set(conn, :state, message_set) do
@@ -20,6 +20,17 @@ defmodule Kashka.GenConsumerTest do
       |> send(message_set)
 
       {:ok, conn, :state}
+    end
+  end
+
+  defmodule TestModuleWithoutInit do
+    @behaviour Kashka.GenConsumer
+
+    def handle_message_set(conn, %{format: :json} = state, message_set) do
+      Process.whereis(:test_process)
+      |> send(message_set)
+
+      {:ok, conn, state}
     end
   end
 
@@ -33,15 +44,16 @@ defmodule Kashka.GenConsumerTest do
   test "json consuming", %{conn: conn, topic: topic} do
     assert {:ok, conn} = Kafka.produce(conn, topic, [%{value: %{foo: "bar"}}], :json)
 
-    {:ok, pid} = GenConsumer.start_link(
-      url: @url,
-      name: "my",
-      consumer_group: "consumer_group",
-      topics: [topic],
-      module: TestModule,
-      format: :json,
-      consumer_opts: %{"auto.offset.reset": :earliest}
-    )
+    {:ok, pid} =
+      GenConsumer.start_link(
+        url: @url,
+        name: "my",
+        consumer_group: "consumer_group",
+        topics: [topic],
+        module: TestModule,
+        format: :json,
+        consumer_opts: %{"auto.offset.reset": :earliest}
+      )
 
     assert_receive [
                      %{
@@ -60,15 +72,16 @@ defmodule Kashka.GenConsumerTest do
   test "binary consuming", %{conn: conn, topic: topic} do
     assert {:ok, conn} = Kafka.produce(conn, topic, [%{value: "test"}], :binary)
 
-    {:ok, pid} = GenConsumer.start_link(
-      url: @url,
-      name: "my",
-      consumer_group: "consumer_group",
-      topics: [topic],
-      module: TestModule,
-      format: :binary,
-      consumer_opts: %{"auto.offset.reset": :earliest}
-    )
+    {:ok, pid} =
+      GenConsumer.start_link(
+        url: @url,
+        name: "my",
+        consumer_group: "consumer_group",
+        topics: [topic],
+        module: TestModule,
+        format: :binary,
+        consumer_opts: %{"auto.offset.reset": :earliest}
+      )
 
     assert_receive [
                      %{
@@ -80,6 +93,35 @@ defmodule Kashka.GenConsumerTest do
                      }
                    ],
                    5000
+
+    GenServer.stop(pid)
+  end
+
+  test "consumer without init", %{conn: conn, topic: topic} do
+    assert {:ok, conn} = Kafka.produce(conn, topic, [%{value: %{foo: "bar"}}], :json)
+
+    {:ok, pid} =
+      GenConsumer.start_link(
+        url: @url,
+        name: "my",
+        consumer_group: "consumer_group",
+        topics: [topic],
+        module: TestModuleWithoutInit,
+        format: :json,
+        consumer_opts: %{"auto.offset.reset": :earliest}
+      )
+
+    assert_receive [
+                     %{
+                       "key" => nil,
+                       "offset" => 0,
+                       "partition" => 0,
+                       "topic" => ^topic,
+                       "value" => %{"foo" => "bar"}
+                     }
+                   ],
+                   5000
+
     GenServer.stop(pid)
   end
 end
