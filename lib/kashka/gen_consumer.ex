@@ -15,9 +15,9 @@ defmodule Kashka.GenConsumer do
           | any()
         ]
 
-  @callback init(conn :: Kashka.Http.t(), opts :: opts()) :: {:ok, Kashk.Http.t(), any()}
+  @callback init(conn :: Kashka.Http.t(), opts :: opts()) :: {:ok, Kashka.Http.t(), any()}
   @callback handle_message_set(conn :: Kashka.Http.t(), state :: any(), message_set :: [map()]) ::
-              {:ok, Kashk.Http.t(), any()}
+              {:ok, Kashka.Http.t(), any()}
 
   @optional_callbacks init: 2
 
@@ -103,7 +103,10 @@ defmodule Kashka.GenConsumer do
         {:ok, base_uri}
 
       {:error, :exists} ->
-        {:ok, conn} = Kafka.delete_consumer(state.conn, state.opts.consumer_group, state.name)
+        {:ok, conn} =
+          Kafka.consumer_path(state.conn, state.opts.consumer_group, state.name)
+          |> Kafka.delete_consumer()
+
         create_consumer(%{state | conn: conn})
     end
   end

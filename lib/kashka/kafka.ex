@@ -144,7 +144,7 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec subscribe(Kashka.Http.t(), %{}) :: {:ok, Kashka.Http.t(), %{}} | http_error
+  @spec subscribe(Kashka.Http.t(), [%{}]) :: {:ok, Kashka.Http.t()} | http_error
   def subscribe(conn, topics) when is_list(topics) do
     data = Jason.encode!(%{"topics" => topics})
 
