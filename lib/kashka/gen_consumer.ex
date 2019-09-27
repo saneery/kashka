@@ -12,6 +12,7 @@ defmodule Kashka.GenConsumer do
           | {:name, String.t()}
           | {:consumer_opts, %{}}
           | {:records_opts, %{}}
+          | {:delete_on_exists, boolean()}
           | any()
         ]
 
@@ -103,11 +104,20 @@ defmodule Kashka.GenConsumer do
         {:ok, base_uri}
 
       {:error, :exists} ->
-        {:ok, conn} =
-          Kafka.consumer_path(state.conn, state.opts.consumer_group, state.name)
-          |> Kafka.delete_consumer()
+        case state.opts.delete_on_exists do
+          true ->
+            Logger.info("Deleting old consumer")
 
-        create_consumer(%{state | conn: conn})
+            {:ok, conn} =
+              Kafka.consumer_path(state.conn, state.opts.consumer_group, state.name)
+              |> Kafka.delete_consumer()
+
+            Kafka.close(conn)
+            create_consumer(state)
+
+          false ->
+            raise "Consumer #{state.name} already exists"
+        end
     end
   end
 
@@ -130,5 +140,6 @@ defmodule Kashka.GenConsumer do
     |> Map.put(:consumer_opts, consumer_opts)
     |> Map.put(:format, format)
     |> Map.put_new(:name, random_string(10))
+    |> Map.put_new(:delete_on_exists, false)
   end
 end

@@ -41,6 +41,20 @@ defmodule Kashka.GenConsumerTest do
     [conn: conn, topic: topic]
   end
 
+  test "deletes old consumer while creating new one", %{topic: topic} do
+    args = [
+      url: @url,
+      name: "my",
+      consumer_group: "consumer_group",
+      topics: [topic],
+      module: TestModule,
+      delete_on_exists: true
+    ]
+
+    {:ok, pid} = GenConsumer.start_link(args)
+    {:ok, pid} = GenConsumer.start_link(args)
+  end
+
   test "json consuming", %{conn: conn, topic: topic} do
     assert {:ok, conn} = Kafka.produce(conn, topic, [%{value: %{foo: "bar"}}], :json)
 
