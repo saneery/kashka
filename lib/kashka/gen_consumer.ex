@@ -34,6 +34,11 @@ defmodule Kashka.GenConsumer do
     GenServer.start_link(__MODULE__, opts)
   end
 
+  @spec start_link(GenServer.name(), opts()) :: GenServer.on_start()
+  def start_link(name, opts) do
+    GenServer.start_link(__MODULE__, opts, name: name)
+  end
+
   @impl true
   def init(opts) do
     opts = load_defaults(opts)

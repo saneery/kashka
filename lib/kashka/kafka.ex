@@ -144,22 +144,18 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec delete_consumer(Kashka.Http.t(), String.t(), String.t()) ::
-          {:ok, Kashka.Http.t()} | http_error()
-  def delete_consumer(conn, group, name) do
-    path = Path.join(["consumers", group, "instances", name])
-
-    with {:ok, conn, _} <- request(conn, "DELETE", path, [@content], "") do
-      {:ok, conn}
-    end
-  end
-
+  @spec subscribe(Kashka.Http.t(), %{}) :: {:ok, Kashka.Http.t(), %{}} | http_error
   def subscribe(conn, topics) when is_list(topics) do
     data = Jason.encode!(%{"topics" => topics})
 
     with {:ok, conn, _} <- request(conn, "POST", "subscription", [@content], data) do
       {:ok, conn}
     end
+  end
+
+  @spec consumer_path(Kashka.Http.t(), String.t(), String.t()) :: String.t()
+  def consumer_path(conn, group, name) do
+    Path.join([Http.path(conn), "consumers", group, "instances", name])
   end
 
   def close(conn) do
