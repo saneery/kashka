@@ -51,7 +51,7 @@ defmodule Kashka.GenConsumer do
     state = %__MODULE__{conn: url, name: name, opts: opts}
     {:ok, base_uri} = create_consumer(state)
 
-    base_uri = %{URI.parse(base_uri) | scheme: url.scheme}
+    base_uri = %{URI.parse(base_uri) | scheme: url.scheme, port: url.port}
 
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
 
