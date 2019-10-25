@@ -25,7 +25,7 @@ defmodule Kashka.Http do
 
   @spec request(t(), String.t(), String.t(), Mint.Types.headers(), iodata(), non_neg_integer) ::
           {:ok, t(), non_neg_integer(), iodata()}
-  def request(state, method, path, headers, body, timeout \\ 20000)
+  def request(state, method, path, headers, body, timeout \\ 60000)
 
   def request(uri, method, path, headers, body, timeout) when is_binary(uri) do
     request(URI.parse(uri), method, path, headers, body, timeout)
