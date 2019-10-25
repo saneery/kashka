@@ -46,8 +46,13 @@ defmodule Kashka.GenConsumer do
     name = Map.get(opts, :name)
     Process.flag(:trap_exit, true)
 
-    state = %__MODULE__{conn: opts.url, name: name, opts: opts}
+    url = URI.parse(opts.url)
+
+    state = %__MODULE__{conn: url, name: name, opts: opts}
     {:ok, base_uri} = create_consumer(state)
+
+    base_uri = %{URI.parse(base_uri) | scheme: url.scheme}
+
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
 
     {:ok, conn, internal_state} =

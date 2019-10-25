@@ -51,8 +51,8 @@ defmodule Kashka.GenConsumerTest do
       delete_on_exists: true
     ]
 
-    {:ok, pid} = GenConsumer.start_link(args)
-    {:ok, pid} = GenConsumer.start_link(args)
+    {:ok, _pid} = GenConsumer.start_link(args)
+    {:ok, _pid} = GenConsumer.start_link(args)
   end
 
   test "json consuming", %{conn: conn, topic: topic} do
