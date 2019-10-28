@@ -16,9 +16,11 @@ defmodule Kashka.Http do
   def path(uri) when is_binary(uri) do
     uri
   end
+
   def path(%URI{} = uri) do
     URI.to_string(uri)
   end
+
   def path({%URI{} = uri, _conn}) do
     URI.to_string(uri)
   end

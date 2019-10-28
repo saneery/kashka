@@ -82,8 +82,7 @@ defmodule Kashka.GenConsumer do
   @impl true
   def handle_info(:timeout, state) do
     Logger.debug("Going to request records")
-    # timeout = state.opts.records_opts.timeout
-    # TODO
+
     {:ok, conn, records} =
       Kafka.get_records(state.conn, state.opts.records_opts, state.opts.format)
 
