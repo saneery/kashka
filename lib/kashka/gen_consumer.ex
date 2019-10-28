@@ -55,10 +55,12 @@ defmodule Kashka.GenConsumer do
       if opts.preserve_schema_and_port do
         %{URI.parse(base_uri) | scheme: url.scheme, port: url.port}
       else
-        base_uri
+        URI.parse(base_uri)
       end
 
+    Logger.info("Consumer with base uri #{URI.to_string(base_uri)} created")
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
+    Logger.info("Consumer #{name} subscribed to topics #{inspect opts.topics}")
 
     {:ok, conn, internal_state} =
       if function_exported?(opts.module, :init, 2) do
