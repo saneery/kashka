@@ -51,7 +51,12 @@ defmodule Kashka.GenConsumer do
     state = %__MODULE__{conn: url, name: name, opts: opts}
     {:ok, base_uri} = create_consumer(state)
 
-    base_uri = %{URI.parse(base_uri) | scheme: url.scheme, port: url.port}
+    base_uri =
+      if opts.preserve_schema_and_port do
+        %{URI.parse(base_uri) | scheme: url.scheme, port: url.port}
+      else
+        base_uri
+      end
 
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
 
@@ -146,5 +151,6 @@ defmodule Kashka.GenConsumer do
     |> Map.put(:format, format)
     |> Map.put_new(:name, random_string(10))
     |> Map.put_new(:delete_on_exists, false)
+    |> Map.put_new(:preserve_schema_and_port, false)
   end
 end
