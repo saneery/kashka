@@ -60,7 +60,7 @@ defmodule Kashka.GenConsumer do
 
     Logger.info("Consumer with base uri #{URI.to_string(base_uri)} created")
     {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
-    Logger.info("Consumer #{name} subscribed to topics #{inspect opts.topics}")
+    Logger.info("Consumer #{name} subscribed to topics #{inspect(opts.topics)}")
 
     {:ok, conn, internal_state} =
       if function_exported?(opts.module, :init, 2) do
@@ -78,7 +78,8 @@ defmodule Kashka.GenConsumer do
     Logger.info("Going to terminate #{st.name} with reason #{inspect(reason)}")
     {:ok, conn} = Kafka.delete_consumer(st.conn)
     Logger.info("Consumer #{st.name} deleted successfully")
-    {:noreply, %{st | conn: conn}}
+    Kafka.close(conn)
+    Logger.info("Connection #{st.name} closed successfully")
   end
 
   @impl true
