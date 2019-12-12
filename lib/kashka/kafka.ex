@@ -46,12 +46,26 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @spec commit([]) :: []
+  def extract_offsets(records) do
+    records
+    |> Enum.reduce(%{}, fn m, acc ->
+      key = {m["topic"] || m[:topic], m["partition"] || m[:partition]}
+      old_offset = Map.get(acc, key, 0)
+      new_offset = m["offset"] || m[:offset]
+      Map.put(acc, key, Enum.max([old_offset, new_offset]))
+    end)
+    |> Enum.map(fn {{topic, partition}, offset} ->
+      %{topic: topic, partition: partition, offset: offset}
+    end)
+  end
+
   @spec commit(Http.t(), %{}) :: {:ok, Http.t()} | http_error()
-  def commit(conn, opts \\ %{}) do
+  def commit(conn, offsets_or_records \\ nil) do
     body =
-      case opts do
-        %{} -> ""
-        _ -> Jason.encode!(opts)
+      case offsets_or_records do
+        nil -> ""
+        list when is_list(list) -> Jason.encode!(%{offsets: extract_offsets(list)})
       end
 
     with {:ok, conn, _data} <- request(conn, "POST", "offsets", [@content], body) do

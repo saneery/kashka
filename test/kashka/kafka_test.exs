@@ -56,6 +56,27 @@ defmodule Kashka.KafkaTest do
       {:ok, _conn, [%{"partition" => 0, "topic" => ^topic}]} = Kafka.assignments(conn)
     end
 
+    test "commiting offsets manually", %{conn: conn, topic: topic} do
+      {:ok, conn} = Kafka.commit(conn, [%{"offset" => 100, "partition" => 0, "topic" => topic}])
+
+      {:ok, _conn, [%{"offset" => 101}]} =
+        Kafka.offsets(conn, [%{"partition" => 0, "topic" => topic}])
+
+      {:ok, conn} = Kafka.commit(conn, [%{offset: 200, partition: 0, topic: topic}])
+
+      {:ok, _conn, [%{"offset" => 201}]} =
+        Kafka.offsets(conn, [%{"partition" => 0, "topic" => topic}])
+
+      {:ok, conn} =
+        Kafka.commit(conn, [
+          %{offset: 400, partition: 0, topic: topic},
+          %{offset: 300, partition: 0, topic: topic}
+        ])
+
+      {:ok, _conn, [%{"offset" => 401}]} =
+        Kafka.offsets(conn, [%{"partition" => 0, "topic" => topic}])
+    end
+
     test "getting offsets", %{conn: conn, topic: topic} do
       partitions = [%{"partition" => 0, "topic" => topic}]
 
