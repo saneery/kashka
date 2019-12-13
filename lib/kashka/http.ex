@@ -38,11 +38,11 @@ defmodule Kashka.Http do
   end
 
   def request({%URI{} = uri, conn}, method, path, headers, body, timeout) do
-    full_path = Path.join(uri.path, path)
+    full_path = Path.join(uri.path || "/", path)
     Logger.debug(fn -> "Send #{method} to #{full_path} with body #{body}" end)
-    headers = [{"Host", uri.authority} | headers]
+    new_headers = headers |> Mint.Core.Util.put_new_header("host", uri.authority)
 
-    case HTTP.request(conn, method, full_path, headers, body) do
+    case HTTP.request(conn, method, full_path, new_headers, body) do
       {:ok, conn, _request_ref} ->
         {:ok, conn, response} = receive_all_response(conn, timeout)
         {:ok, status, body} = get_status_and_body(response)

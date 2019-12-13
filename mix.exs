@@ -33,7 +33,8 @@ defmodule Kashka.MixProject do
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:dialyxir, "~> 0.5.1", only: :dev},
       {:credo, "~> 1.1.2", only: :dev, runtime: false},
-      {:excoveralls, "~> 0.11.2", only: :test}
+      {:excoveralls, "~> 0.11.2", only: :test},
+      {:bypass, "~> 1.0", only: :test}
     ]
   end
 end
