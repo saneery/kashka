@@ -11,5 +11,6 @@ defmodule Kashka.HttpTest do
     end)
 
     assert {:ok, conn, 200, body} = Http.request("http://127.0.0.1:8811", "GET", "v1", [{"host","ya.ru"}], "")
+    assert {:ok, conn, 200, body} = Http.request({"http://127.0.0.1:8811", [{"host","ya.ru"}]}, "GET", "v1", [], "")
   end
 end

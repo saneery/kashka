@@ -46,21 +46,7 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec commit([]) :: []
-  def extract_offsets(records) do
-    records
-    |> Enum.reduce(%{}, fn m, acc ->
-      key = {m["topic"] || m[:topic], m["partition"] || m[:partition]}
-      old_offset = Map.get(acc, key, 0)
-      new_offset = m["offset"] || m[:offset]
-      Map.put(acc, key, Enum.max([old_offset, new_offset]))
-    end)
-    |> Enum.map(fn {{topic, partition}, offset} ->
-      %{topic: topic, partition: partition, offset: offset}
-    end)
-  end
-
-  @spec commit(Http.t(), %{}) :: {:ok, Http.t()} | http_error()
+  @spec commit(Http.t(), %{} | nil) :: {:ok, Http.t()} | http_error()
   def commit(conn, offsets_or_records \\ nil) do
     body =
       case offsets_or_records do
@@ -191,6 +177,19 @@ defmodule Kashka.Kafka do
 
   defp http_timeout() do
     Application.get_env(:kashka, :http_timeout, 20000)
+  end
+
+  defp extract_offsets(records) do
+    records
+    |> Enum.reduce(%{}, fn m, acc ->
+      key = {m["topic"] || m[:topic], m["partition"] || m[:partition]}
+      old_offset = Map.get(acc, key, 0)
+      new_offset = m["offset"] || m[:offset]
+      Map.put(acc, key, Enum.max([old_offset, new_offset]))
+    end)
+    |> Enum.map(fn {{topic, partition}, offset} ->
+      %{topic: topic, partition: partition, offset: offset}
+    end)
   end
 
   defp decode64(nil), do: nil

@@ -5,10 +5,11 @@ defmodule Kashka.Http do
 
   require Logger
 
-  @type t :: {URI.t(), Mint.HTTP.t()} | URI.t() | String.t()
+  defstruct uri: nil, mint: nil, headers: []
+  @type t :: %__MODULE__{} | URI.t() | String.t() | {String.t(), []} | {URI.t(), []}
 
   @spec close(t()) :: :ok
-  def close({_, conn}) do
+  def close(%__MODULE__{mint: conn}) do
     {:ok, _} = HTTP.close(conn)
     :ok
   end
@@ -21,7 +22,7 @@ defmodule Kashka.Http do
     URI.to_string(uri)
   end
 
-  def path({%URI{} = uri, _conn}) do
+  def path(%__MODULE__{uri: uri}) do
     URI.to_string(uri)
   end
 
@@ -33,26 +34,39 @@ defmodule Kashka.Http do
     request(URI.parse(uri), method, path, headers, body, timeout)
   end
 
-  def request(%URI{} = uri, method, path, headers, body, timeout) do
-    request({uri, open(uri)}, method, path, headers, body, timeout)
+  def request({uri, extra_headers}, method, path, headers, body, timeout) when is_binary(uri) and is_list(extra_headers) do
+    request({URI.parse(uri), extra_headers}, method, path, headers, body, timeout)
   end
 
-  def request({%URI{} = uri, conn}, method, path, headers, body, timeout) do
+  def request(%URI{} = uri, method, path, headers, body, timeout) do
+    request(%__MODULE__{uri: uri, mint: open(uri)}, method, path, headers, body, timeout)
+  end
+  def request({%URI{} = uri, extra_headers}, method, path, headers, body, timeout) when is_list(extra_headers) do
+    request(%__MODULE__{uri: uri, mint: open(uri), headers: extra_headers}, method, path, headers, body, timeout)
+  end
+
+  def request(%__MODULE__{uri: uri, mint: nil} = st, method, path, headers, body, timeout) do
+    request(%{st | mint: open(uri)}, method, path, headers, body, timeout)
+  end
+
+  def request(%__MODULE__{uri: uri, mint: conn} = st, method, path, headers, body, timeout) do
     full_path = Path.join(uri.path || "/", path)
     Logger.debug(fn -> "Send #{method} to #{full_path} with body #{body}" end)
-    new_headers = headers |> Mint.Core.Util.put_new_header("host", uri.authority)
+    new_headers = st.headers
+                  |> Enum.reduce(headers, fn {k, v}, acc -> Mint.Core.Util.put_new_header(acc, k, v) end)
+                  |> Mint.Core.Util.put_new_header("host", uri.authority)
 
     case HTTP.request(conn, method, full_path, new_headers, body) do
       {:ok, conn, _request_ref} ->
         {:ok, conn, response} = receive_all_response(conn, timeout)
         {:ok, status, body} = get_status_and_body(response)
-        {:ok, {uri, conn}, status, body}
+        {:ok, %{st | mint: conn}, status, body}
 
       {:error, _conn, %Mint.HTTPError{reason: :closed}} ->
-        request(uri, method, path, headers, body, timeout)
+        request(%{st | mint: nil}, method, path, headers, body, timeout)
 
       {:error, _conn, %Mint.TransportError{reason: :closed}} ->
-        request(uri, method, path, headers, body, timeout)
+        request(%{st | mint: nil}, method, path, headers, body, timeout)
     end
   end
 
