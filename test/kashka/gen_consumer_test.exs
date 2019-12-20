@@ -36,7 +36,8 @@ defmodule Kashka.GenConsumerTest do
 
   setup do
     {:ok, conn, topic} = get_new_topic(@url)
-    Kafka.consumer_path(conn, "consumer_group", "my") |> Kafka.delete_consumer()
+    cons_path = Kafka.consumer_path("consumer_group", "my")
+    Kafka.delete_consumer(conn, cons_path)
     Process.register(self(), :test_process)
     [conn: conn, topic: topic]
   end
@@ -51,7 +52,10 @@ defmodule Kashka.GenConsumerTest do
       delete_on_exists: true
     ]
 
-    {:ok, _pid} = GenConsumer.start_link(args)
+    {:ok, pid} = GenConsumer.start_link(args)
+    :erlang.unlink(pid)
+    :erlang.exit(pid, :kill)
+
     {:ok, _pid} = GenConsumer.start_link(args)
   end
 

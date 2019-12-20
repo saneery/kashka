@@ -9,7 +9,8 @@ defmodule Kashka.KafkaTest do
 
   setup do
     {:ok, conn, topic} = get_new_topic(@url)
-    Kafka.consumer_path(conn, "consumer_group", "my") |> Kafka.delete_consumer()
+    path = Kafka.consumer_path("consumer_group", "my")
+    Kafka.delete_consumer(conn, path)
     [conn: conn, topic: topic]
   end
 
@@ -17,8 +18,8 @@ defmodule Kashka.KafkaTest do
     assert {:ok, conn, %{"base_uri" => uri}} =
              Kafka.create_consumer(@url, "consumer_group", %{name: "my", format: "json"})
 
-    assert {:ok, conn} =
-             Kafka.consumer_path(conn, "consumer_group", "my") |> Kafka.delete_consumer()
+    path = Kafka.consumer_path("consumer_group", "my")
+    assert {:ok, conn} = Kafka.delete_consumer(conn, path)
 
     assert :ok == Kafka.close(conn)
   end

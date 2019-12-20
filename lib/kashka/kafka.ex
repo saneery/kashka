@@ -138,8 +138,8 @@ defmodule Kashka.Kafka do
   end
 
   @spec delete_consumer(Kashka.Http.t()) :: {:ok, Kashka.Http.t()} | http_error()
-  def delete_consumer(conn) do
-    with {:ok, conn, _} <- request(conn, "DELETE", "", [@content], "") do
+  def delete_consumer(conn, extra_path \\ "") do
+    with {:ok, conn, _} <- request(conn, "DELETE", extra_path, [@content], "") do
       {:ok, conn}
     end
   end
@@ -153,9 +153,9 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec consumer_path(Kashka.Http.t(), String.t(), String.t()) :: String.t()
-  def consumer_path(conn, group, name) do
-    Path.join([Http.path(conn), "consumers", group, "instances", name])
+  @spec consumer_path(String.t(), String.t()) :: String.t()
+  def consumer_path(group, name) do
+    Path.join(["consumers", group, "instances", name])
   end
 
   def close(conn) do
