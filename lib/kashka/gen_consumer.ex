@@ -1,11 +1,16 @@
 defmodule Kashka.GenConsumer do
+  @moduledoc """
+  Module to start consuming process
+  """
+
   use GenServer
   require Logger
 
   alias Kashka.Kafka
+  alias Kashka.Http
 
   @type opts() :: [
-          {:url, String.t()}
+          {:url, Kashka.Http.args()}
           | {:topics, [String.t()]}
           | {:consumer_group, String.t()}
           | {:module, module()}
@@ -46,20 +51,15 @@ defmodule Kashka.GenConsumer do
     name = Map.get(opts, :name)
     Process.flag(:trap_exit, true)
 
-    url = URI.parse(opts.url)
+    state = %__MODULE__{conn: opts.url, name: name, opts: opts}
+    {:ok, conn, base_uri} = create_consumer(state)
 
-    state = %__MODULE__{conn: url, name: name, opts: opts}
-    {:ok, base_uri} = create_consumer(state)
+    Logger.info("Consumer with base uri #{base_uri} created")
 
-    base_uri =
-      if opts.preserve_schema_and_port do
-        %{URI.parse(base_uri) | scheme: url.scheme, port: url.port}
-      else
-        URI.parse(base_uri)
-      end
+    {:ok, conn} =
+      Http.reconnect_to(conn, base_uri)
+      |> Kafka.subscribe(opts.topics)
 
-    Logger.info("Consumer with base uri #{URI.to_string(base_uri)} created")
-    {:ok, conn} = Kafka.subscribe(base_uri, opts.topics)
     Logger.info("Consumer #{name} subscribed to topics #{inspect(opts.topics)}")
 
     {:ok, conn, internal_state} =
@@ -112,20 +112,15 @@ defmodule Kashka.GenConsumer do
     case Kafka.create_consumer(state.conn, state.opts.consumer_group, consumer_opts) do
       {:ok, conn, %{"base_uri" => base_uri}} ->
         Logger.debug("Consumer #{state.name} created")
-        Kafka.close(conn)
-        {:ok, base_uri}
+        {:ok, conn, base_uri}
 
       {:error, :exists} ->
         case state.opts.delete_on_exists do
           true ->
             Logger.info("Deleting old consumer")
 
-            {:ok, conn} =
-              Kafka.consumer_path(state.conn, state.opts.consumer_group, state.name)
-              |> Kafka.delete_consumer()
-
-            Kafka.close(conn)
-            create_consumer(state)
+            {:ok, conn} = Kafka.delete_consumer(state.conn, state.opts.consumer_group, state.name)
+            create_consumer(%{state | conn: conn})
 
           false ->
             raise "Consumer #{state.name} already exists"
@@ -153,6 +148,5 @@ defmodule Kashka.GenConsumer do
     |> Map.put(:format, format)
     |> Map.put_new(:name, random_string(10))
     |> Map.put_new(:delete_on_exists, false)
-    |> Map.put_new(:preserve_schema_and_port, false)
   end
 end

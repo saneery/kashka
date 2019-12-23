@@ -1,4 +1,9 @@
 defmodule Kashka.Kafka do
+  @moduledoc """
+  Module to make direct requests to Kafka Rest Proxy.
+  Use https://docs.confluent.io/current/kafka-rest/api.html to figure out how to use
+  """
+
   @content {"Content-Type", "application/vnd.kafka.v2+json"}
   @content_json {"Content-Type", "application/vnd.kafka.json.v2+json"}
   @content_binary {"Content-Type", "application/vnd.kafka.binary.v2+json"}
@@ -12,6 +17,9 @@ defmodule Kashka.Kafka do
 
   @type http_error :: {:error, :http, code :: non_neg_integer(), iodata()}
 
+  @doc """
+  Requests all topics list
+  """
   @spec topics(Http.t()) :: {:ok, Http.t(), %{}} | http_error()
   def topics(conn) do
     with {:ok, conn, data} <- request(conn, "GET", "topics", [@accept], "") do
@@ -19,6 +27,15 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @doc """
+  Requests offsets for consumer.
+  See https://docs.confluent.io/current/kafka-rest/api.html#get--consumers-(string-group_name)-instances-(string-instance)-offsets
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+    - partitions: list of `%{topic: "test", partition: 0}` maps
+  """
   @spec offsets(Http.t(), %{}) :: {:ok, Http.t(), %{}} | http_error()
   def offsets(conn, partitions) do
     data = Jason.encode!(%{partitions: partitions})
@@ -46,21 +63,7 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec commit([]) :: []
-  def extract_offsets(records) do
-    records
-    |> Enum.reduce(%{}, fn m, acc ->
-      key = {m["topic"] || m[:topic], m["partition"] || m[:partition]}
-      old_offset = Map.get(acc, key, 0)
-      new_offset = m["offset"] || m[:offset]
-      Map.put(acc, key, Enum.max([old_offset, new_offset]))
-    end)
-    |> Enum.map(fn {{topic, partition}, offset} ->
-      %{topic: topic, partition: partition, offset: offset}
-    end)
-  end
-
-  @spec commit(Http.t(), %{}) :: {:ok, Http.t()} | http_error()
+  @spec commit(Http.t(), %{} | nil) :: {:ok, Http.t()} | http_error()
   def commit(conn, offsets_or_records \\ nil) do
     body =
       case offsets_or_records do
@@ -158,6 +161,16 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @spec delete_consumer(Kashka.Http.t(), String.t(), String.t()) ::
+          {:ok, Kashka.Http.t()} | http_error()
+  def delete_consumer(conn, group, name) do
+    extra_path = Path.join(["consumers", group, "instances", name])
+
+    with {:ok, conn, _} <- request(conn, "DELETE", extra_path, [@content], "") do
+      {:ok, conn}
+    end
+  end
+
   @spec subscribe(Kashka.Http.t(), [%{}]) :: {:ok, Kashka.Http.t()} | http_error
   def subscribe(conn, topics) when is_list(topics) do
     data = Jason.encode!(%{"topics" => topics})
@@ -167,17 +180,11 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec consumer_path(Kashka.Http.t(), String.t(), String.t()) :: String.t()
-  def consumer_path(conn, group, name) do
-    Path.join([Http.path(conn), "consumers", group, "instances", name])
-  end
-
+  @spec close(Kashka.Http.t()) :: :ok
   def close(conn) do
     Http.close(conn)
   end
 
-  @spec request(Http.t(), String.t(), String.t(), Mint.Types.headers(), iodata()) ::
-          {:ok, Http.t(), iodata()} | http_error()
   defp request(conn, method, path, headers, body) do
     case Http.request(conn, method, path, headers, body, http_timeout()) do
       {:ok, conn, code, data} when code >= 200 and code < 300 ->
@@ -191,6 +198,19 @@ defmodule Kashka.Kafka do
 
   defp http_timeout() do
     Application.get_env(:kashka, :http_timeout, 20000)
+  end
+
+  defp extract_offsets(records) do
+    records
+    |> Enum.reduce(%{}, fn m, acc ->
+      key = {m["topic"] || m[:topic], m["partition"] || m[:partition]}
+      old_offset = Map.get(acc, key, 0)
+      new_offset = m["offset"] || m[:offset]
+      Map.put(acc, key, Enum.max([old_offset, new_offset]))
+    end)
+    |> Enum.map(fn {{topic, partition}, offset} ->
+      %{topic: topic, partition: partition, offset: offset}
+    end)
   end
 
   defp decode64(nil), do: nil

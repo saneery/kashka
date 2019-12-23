@@ -1,62 +1,102 @@
 defmodule Kashka.Http do
+  @moduledoc """
+  Specialized wrapper around Mint library
+  """
+
   @https_connect_opts [transport_opts: [verify: :verify_none]]
 
   alias Mint.HTTP
 
   require Logger
 
-  @type t :: {URI.t(), Mint.HTTP.t()} | URI.t() | String.t()
+  defstruct uri: nil,
+            mint: nil,
+            headers: [],
+            fix_schema: false,
+            fix_port: false,
+            fix_host: false
+
+  @type t :: %Kashka.Http{
+          uri: URI.t(),
+          mint: Mint.HTTP.t(),
+          headers: [],
+          fix_schema: boolean(),
+          fix_port: boolean(),
+          fix_host: boolean()
+        }
+
+  @type args :: String.t() | Keyword.t()
 
   @spec close(t()) :: :ok
-  def close({_, conn}) do
+  def close(%__MODULE__{mint: conn}) do
     {:ok, _} = HTTP.close(conn)
     :ok
   end
 
-  def path(uri) when is_binary(uri) do
-    uri
+  @spec reconnect_to(t(), String.t()) :: %__MODULE__{}
+  def reconnect_to(%__MODULE__{uri: uri, mint: conn} = state, url) do
+    HTTP.close(conn)
+
+    s = %{state | mint: nil, uri: URI.parse(url)}
+    s = if state.fix_schema, do: %{s | uri: %{s.uri | scheme: uri.scheme}}, else: s
+    s = if state.fix_port, do: %{s | uri: %{s.uri | port: uri.port}}, else: s
+
+    s =
+      if state.fix_host do
+        %{s | uri: %{s.uri | host: uri.host}, headers: set_header(s.headers, "host", s.uri.host)}
+      else
+        s
+      end
+
+    %{s | mint: mint_connect(s.uri)}
   end
 
-  def path(%URI{} = uri) do
-    URI.to_string(uri)
-  end
-
-  def path({%URI{} = uri, _conn}) do
-    URI.to_string(uri)
-  end
-
-  @spec request(t(), String.t(), String.t(), Mint.Types.headers(), iodata(), non_neg_integer) ::
+  @spec request(
+          t() | args(),
+          String.t(),
+          String.t(),
+          Mint.Types.headers(),
+          iodata(),
+          non_neg_integer
+        ) ::
           {:ok, t(), non_neg_integer(), iodata()}
   def request(state, method, path, headers, body, timeout \\ 20000)
 
-  def request(uri, method, path, headers, body, timeout) when is_binary(uri) do
-    request(URI.parse(uri), method, path, headers, body, timeout)
-  end
-
-  def request(%URI{} = uri, method, path, headers, body, timeout) do
-    request({uri, open(uri)}, method, path, headers, body, timeout)
-  end
-
-  def request({%URI{} = uri, conn}, method, path, headers, body, timeout) do
-    full_path = Path.join(uri.path, path)
+  def request(%__MODULE__{uri: uri, mint: conn} = st, method, path, headers, body, timeout) do
+    full_path = Path.join(uri.path || "/", path)
     Logger.debug(fn -> "Send #{method} to #{full_path} with body #{body}" end)
-    headers = [{"Host", uri.authority} | headers]
 
-    case HTTP.request(conn, method, full_path, headers, body) do
+    new_headers =
+      st.headers
+      |> Enum.reduce(headers, fn {k, v}, acc -> Mint.Core.Util.put_new_header(acc, k, v) end)
+      |> Mint.Core.Util.put_new_header("host", uri.authority)
+
+    case HTTP.request(conn, method, full_path, new_headers, body) do
       {:ok, conn, _request_ref} ->
         {:ok, conn, response} = receive_all_response(conn, timeout)
         {:ok, status, body} = get_status_and_body(response)
-        {:ok, {uri, conn}, status, body}
+        {:ok, %{st | mint: conn}, status, body}
 
       {:error, _conn, %Mint.HTTPError{reason: :closed}} ->
-        request(uri, method, path, headers, body, timeout)
+        request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
 
       {:error, _conn, %Mint.TransportError{reason: :closed}} ->
-        request(uri, method, path, headers, body, timeout)
+        request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
     end
   end
 
-  defp open(uri) do
+  def request(%__MODULE__{} = st, method, path, headers, body, timeout) do
+    request(st, method, path, headers, body, timeout)
+  end
+
+  def request(smth, method, path, headers, body, timeout) do
+    st = build_state(smth)
+
+    %{st | mint: mint_connect(st.uri)}
+    |> request(method, path, headers, body, timeout)
+  end
+
+  defp mint_connect(uri) do
     Logger.debug("Going to reconnect")
 
     case uri.scheme do
@@ -117,5 +157,23 @@ defmodule Kashka.Http do
     response
     |> Enum.filter(fn e -> :data == :erlang.element(1, e) end)
     |> Enum.map(&:erlang.element(3, &1))
+  end
+
+  defp build_state(url) when is_binary(url) do
+    build_state(url: url)
+  end
+
+  defp build_state(args) when is_list(args) do
+    %__MODULE__{
+      uri: Keyword.get(args, :url, []) |> URI.parse(),
+      headers: Keyword.get(args, :headers, []),
+      fix_host: Keyword.get(args, :fix_host, false),
+      fix_port: Keyword.get(args, :fix_port, false),
+      fix_schema: Keyword.get(args, :fix_schema, false)
+    }
+  end
+
+  defp set_header(headers, name, value) do
+    :lists.keystore(name, 1, headers, {name, value})
   end
 end
