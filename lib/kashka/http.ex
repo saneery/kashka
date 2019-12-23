@@ -139,23 +139,13 @@ defmodule Kashka.Http do
     |> Enum.map(&:erlang.element(3, &1))
   end
 
-  defp build_state(uri) when is_binary(uri) do
-    URI.parse(uri)
-    |> build_state()
+  defp build_state(url) when is_binary(url) do
+    build_state(url: url)
   end
 
-  defp build_state({uri, args}) when is_binary(uri) and is_list(args) do
-    {URI.parse(uri), args}
-    |> build_state()
-  end
-
-  defp build_state(%URI{} = uri) do
-    %__MODULE__{uri: uri, mint: mint_connect(uri)}
-  end
-
-  defp build_state({%URI{} = uri, args}) when is_list(args) do
+  defp build_state(args) when is_list(args) do
     %__MODULE__{
-      uri: uri,
+      uri: Keyword.get(args, :url, []) |> URI.parse(),
       headers: Keyword.get(args, :headers, []),
       fix_host: Keyword.get(args, :fix_host, false),
       fix_port: Keyword.get(args, :fix_port, false),
