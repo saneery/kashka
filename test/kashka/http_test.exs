@@ -16,41 +16,41 @@ defmodule Kashka.HttpTest do
 
   test "http_headers" do
     assert {:ok, conn, 200, body} =
-             Http.request("http://127.0.0.1:8811", "GET", "v1", [{"host", "ya1.ru"}], "")
+             Http.request("http://127.0.0.1:8811", "GET", "v1", [{"host", "smth1.com"}], "")
 
-    assert_receive %{headers: ["ya1.ru"]}
+    assert_receive %{headers: ["smth1.com"]}
 
     assert {:ok, conn, 200, body} =
              Http.request(
-               [url: "http://127.0.0.1:8811", headers: [{"host", "ya2.ru"}]],
+               [url: "http://127.0.0.1:8811", headers: [{"host", "smth2.com"}]],
                "GET",
                "v1",
                [],
                ""
              )
 
-    assert_receive %{headers: ["ya2.ru"]}
+    assert_receive %{headers: ["smth2.com"]}
 
     assert {:ok, conn, 200, body} =
              Http.request(
-               [url: "http://127.0.0.1:8811", headers: [{"host", "ya2.ru"}]],
+               [url: "http://127.0.0.1:8811", headers: [{"host", "smth2.com"}]],
                "GET",
                "v1",
-               [{"host", "ya2.ru"}],
+               [{"host", "smth2.com"}],
                ""
              )
 
-    assert_receive %{headers: ["ya2.ru"]}
+    assert_receive %{headers: ["smth2.com"]}
   end
 
   test "ip arg" do
-    url = [url: "http://127.0.0.1:8811", fix_host: true, headers: [{"host", "ya1.ru"}]]
+    url = [url: "http://127.0.0.1:8811", fix_host: true, headers: [{"host", "smth1.com"}]]
     assert {:ok, conn, 200, body} = Http.request(url, "GET", "v1", [], "")
-    assert_receive %{headers: ["ya1.ru"]}
+    assert_receive %{headers: ["smth1.com"]}
 
-    Http.reconnect_to(conn, "http://ya2.ru:8811")
+    Http.reconnect_to(conn, "http://smth2.com:8811")
     |> Http.request("GET", "v1", [], "")
 
-    assert_receive %{headers: ["ya2.ru"]}
+    assert_receive %{headers: ["smth2.com"]}
   end
 end
