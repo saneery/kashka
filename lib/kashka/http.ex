@@ -94,10 +94,14 @@ defmodule Kashka.Http do
   end
 
   def request(smth, method, path, headers, body, timeout) do
-    st = build_state(smth)
-
-    %{st | mint: mint_connect(st.uri)}
+    connect(smth)
     |> request(method, path, headers, body, timeout)
+  end
+
+  @spec connect(args()) :: t()
+  def connect(smth) do
+    st = build_state(smth)
+    %{st | mint: mint_connect(st.uri)}
   end
 
   defp mint_connect(uri) do
