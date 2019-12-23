@@ -38,6 +38,16 @@ defmodule Kashka.KafkaTest do
     assert {:ok, _} = Kafka.delete_consumer(uri)
   end
 
+  test "delete existing consumers", %{conn: conn} do
+    assert {:ok, conn, %{"base_uri" => uri}} =
+             Kafka.create_consumer(conn, "consumer_group", %{name: "my", format: "json"})
+
+    assert {:ok, _} =
+             conn
+             |> Kafka.move_to_existing_consumer("consumer_group", "my")
+             |> Kafka.delete_consumer()
+  end
+
   describe "subscribed json consumer" do
     setup %{conn: conn, topic: topic} do
       assert {:ok, conn} = Kafka.produce(conn, topic, [%{value: %{foo: "bar"}}])

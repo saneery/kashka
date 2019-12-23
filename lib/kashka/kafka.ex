@@ -180,6 +180,14 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @doc """
+  This function mostly used in tests when there is only one kafka rest proxy node
+  """
+  @spec move_to_existing_consumer(Kashka.Http.t(), String.t(), String.t()) :: Kashka.Http.t()
+  def move_to_existing_consumer(conn, group, name) do
+    Http.append_path(conn, Path.join(["consumers", group, "instances", name]))
+  end
+
   @spec close(Kashka.Http.t()) :: :ok
   def close(conn) do
     Http.close(conn)

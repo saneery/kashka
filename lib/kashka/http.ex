@@ -51,6 +51,10 @@ defmodule Kashka.Http do
     %{s | mint: mint_connect(s.uri)}
   end
 
+  def append_path(%__MODULE__{uri: uri} = state, path) do
+    %{state | uri: %{uri | path: Path.join(uri.path || "/", path)}}
+  end
+
   @spec request(
           t() | args(),
           String.t(),

@@ -9,7 +9,7 @@ defmodule Kashka.HttpTest do
     Bypass.open(port: 8811)
     |> Bypass.expect(fn conn ->
       headers = Plug.Conn.get_req_header(conn, "host")
-      Process.send(me, %{headers: headers}, [])
+      Process.send(me, %{headers: headers, path: conn.request_path}, [])
       Plug.Conn.resp(conn, 200, "")
     end)
   end
@@ -52,5 +52,17 @@ defmodule Kashka.HttpTest do
     |> Http.request("GET", "v1", [], "")
 
     assert_receive %{headers: ["smth2.com"]}
+  end
+
+  test "append_path" do
+    url = "http://127.0.0.1:8811"
+    assert {:ok, conn, 200, body} = Http.request(url, "GET", "v1", [], "")
+    assert_receive %{headers: ["127.0.0.1:8811"], path: "/v1"}
+
+    assert {:ok, conn, 200, body} =
+      conn
+      |> Http.append_path("smth")
+      |> Http.request("GET", "v1", [], "")
+    assert_receive %{headers: ["127.0.0.1:8811"], path: "/smth/v1"}
   end
 end
