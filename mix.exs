@@ -8,6 +8,7 @@ defmodule Kashka.MixProject do
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      docs: docs(),
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
         coveralls: :test,
@@ -18,14 +19,12 @@ defmodule Kashka.MixProject do
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       extra_applications: [:logger]
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:mint, "~> 0.4.0"},
@@ -35,6 +34,14 @@ defmodule Kashka.MixProject do
       {:credo, "~> 1.1.2", only: :dev, runtime: false},
       {:excoveralls, "~> 0.11.2", only: :test},
       {:bypass, "~> 1.0", only: :test}
+    ]
+  end
+
+  defp docs do
+    [
+      source_url_pattern: "https://github.com/netDalek/kashka",
+      main: "readme",
+      extras: ["README.md"]
     ]
   end
 end

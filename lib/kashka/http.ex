@@ -1,4 +1,8 @@
 defmodule Kashka.Http do
+  @moduledoc """
+  Specialized wrapper around Mint library
+  """
+
   @https_connect_opts [transport_opts: [verify: :verify_none]]
 
   alias Mint.HTTP
@@ -12,7 +16,16 @@ defmodule Kashka.Http do
             fix_port: false,
             fix_host: false
 
-  @type t :: %__MODULE__{} | URI.t() | String.t() | {String.t(), []} | {URI.t(), []}
+  @type t :: %Kashka.Http{
+          uri: URI.t(),
+          mint: Mint.HTTP.t(),
+          headers: [],
+          fix_schema: boolean(),
+          fix_port: boolean(),
+          fix_host: boolean()
+        }
+
+  @type args :: String.t() | Keyword.t()
 
   @spec close(t()) :: :ok
   def close(%__MODULE__{mint: conn}) do
@@ -20,7 +33,7 @@ defmodule Kashka.Http do
     :ok
   end
 
-  @spec reconnect_to(%__MODULE__{}, String.t()) :: %__MODULE__{}
+  @spec reconnect_to(t(), String.t()) :: %__MODULE__{}
   def reconnect_to(%__MODULE__{uri: uri, mint: conn} = state, url) do
     HTTP.close(conn)
 
@@ -38,7 +51,14 @@ defmodule Kashka.Http do
     %{s | mint: mint_connect(s.uri)}
   end
 
-  @spec request(t(), String.t(), String.t(), Mint.Types.headers(), iodata(), non_neg_integer) ::
+  @spec request(
+          t() | args(),
+          String.t(),
+          String.t(),
+          Mint.Types.headers(),
+          iodata(),
+          non_neg_integer
+        ) ::
           {:ok, t(), non_neg_integer(), iodata()}
   def request(state, method, path, headers, body, timeout \\ 20000)
 

@@ -1,4 +1,9 @@
 defmodule Kashka.Kafka do
+  @moduledoc """
+  Module to make direct requests to Kafka Rest Proxy.
+  Use https://docs.confluent.io/current/kafka-rest/api.html to figure out how to use
+  """
+
   @content {"Content-Type", "application/vnd.kafka.v2+json"}
   @content_json {"Content-Type", "application/vnd.kafka.json.v2+json"}
   @content_binary {"Content-Type", "application/vnd.kafka.binary.v2+json"}
@@ -12,6 +17,9 @@ defmodule Kashka.Kafka do
 
   @type http_error :: {:error, :http, code :: non_neg_integer(), iodata()}
 
+  @doc """
+  Requests all topics list
+  """
   @spec topics(Http.t()) :: {:ok, Http.t(), %{}} | http_error()
   def topics(conn) do
     with {:ok, conn, data} <- request(conn, "GET", "topics", [@accept], "") do
@@ -19,6 +27,15 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @doc """
+  Requests offsets for consumer.
+  See https://docs.confluent.io/current/kafka-rest/api.html#get--consumers-(string-group_name)-instances-(string-instance)-offsets
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+    - partitions: list of `%{topic: "test", partition: 0}` maps
+  """
   @spec offsets(Http.t(), %{}) :: {:ok, Http.t(), %{}} | http_error()
   def offsets(conn, partitions) do
     data = Jason.encode!(%{partitions: partitions})
@@ -138,7 +155,17 @@ defmodule Kashka.Kafka do
   end
 
   @spec delete_consumer(Kashka.Http.t()) :: {:ok, Kashka.Http.t()} | http_error()
-  def delete_consumer(conn, extra_path \\ "") do
+  def delete_consumer(conn) do
+    with {:ok, conn, _} <- request(conn, "DELETE", "", [@content], "") do
+      {:ok, conn}
+    end
+  end
+
+  @spec delete_consumer(Kashka.Http.t(), String.t(), String.t()) ::
+          {:ok, Kashka.Http.t()} | http_error()
+  def delete_consumer(conn, group, name) do
+    extra_path = Path.join(["consumers", group, "instances", name])
+
     with {:ok, conn, _} <- request(conn, "DELETE", extra_path, [@content], "") do
       {:ok, conn}
     end
@@ -153,17 +180,11 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec consumer_path(String.t(), String.t()) :: String.t()
-  def consumer_path(group, name) do
-    Path.join(["consumers", group, "instances", name])
-  end
-
+  @spec close(Kashka.Http.t()) :: :ok
   def close(conn) do
     Http.close(conn)
   end
 
-  @spec request(Http.t(), String.t(), String.t(), Mint.Types.headers(), iodata()) ::
-          {:ok, Http.t(), iodata()} | http_error()
   defp request(conn, method, path, headers, body) do
     case Http.request(conn, method, path, headers, body, http_timeout()) do
       {:ok, conn, code, data} when code >= 200 and code < 300 ->

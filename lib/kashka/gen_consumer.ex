@@ -1,4 +1,8 @@
 defmodule Kashka.GenConsumer do
+  @moduledoc """
+  Module to start consuming process
+  """
+
   use GenServer
   require Logger
 
@@ -6,7 +10,7 @@ defmodule Kashka.GenConsumer do
   alias Kashka.Http
 
   @type opts() :: [
-          {:url, String.t()}
+          {:url, Kashka.Http.args()}
           | {:topics, [String.t()]}
           | {:consumer_group, String.t()}
           | {:module, module()}
@@ -115,8 +119,7 @@ defmodule Kashka.GenConsumer do
           true ->
             Logger.info("Deleting old consumer")
 
-            path = Kafka.consumer_path(state.opts.consumer_group, state.name)
-            {:ok, conn} = Kafka.delete_consumer(state.conn, path)
+            {:ok, conn} = Kafka.delete_consumer(state.conn, state.opts.consumer_group, state.name)
             create_consumer(%{state | conn: conn})
 
           false ->
@@ -145,6 +148,5 @@ defmodule Kashka.GenConsumer do
     |> Map.put(:format, format)
     |> Map.put_new(:name, random_string(10))
     |> Map.put_new(:delete_on_exists, false)
-    |> Map.put_new(:preserve_schema_and_port, false)
   end
 end

@@ -36,8 +36,7 @@ defmodule Kashka.GenConsumerTest do
 
   setup do
     {:ok, conn, topic} = get_new_topic(@url)
-    cons_path = Kafka.consumer_path("consumer_group", "my")
-    Kafka.delete_consumer(conn, cons_path)
+    Kafka.delete_consumer(conn, "consumer_group", "my")
     Process.register(self(), :test_process)
     [conn: conn, topic: topic]
   end
