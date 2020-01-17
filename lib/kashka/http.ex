@@ -5,6 +5,10 @@ defmodule Kashka.Http do
 
   @https_connect_opts [transport_opts: [verify: :verify_none]]
 
+  defmodule TimeoutException do
+    defexception message: "Kafka Rest API response timeout"
+  end
+
   alias Mint.HTTP
 
   require Logger
@@ -133,7 +137,7 @@ defmodule Kashka.Http do
         process_data(conn, message, data, timeout)
     after
       timeout ->
-        :erlang.error({:mint_helper, :timeout})
+        raise TimeoutException, message: "Kafka Rest API response timeout (#{timeout} ms)"
     end
   end
 
