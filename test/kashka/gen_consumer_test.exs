@@ -4,6 +4,7 @@ defmodule Kashka.GenConsumerTest do
   alias Kashka.Kafka
   alias Kashka.GenConsumer
 
+  import ExUnit.CaptureLog
   import KashkaTest.Helpers
 
   @url "http://localhost:8082/"
@@ -140,5 +141,21 @@ defmodule Kashka.GenConsumerTest do
                    5000
 
     GenServer.stop(pid)
+  end
+  test "retry_on_exists", %{topic: topic} do
+    args = [
+      url: @url,
+      name: "my",
+      consumer_group: "consumer_group",
+      topics: [topic],
+      module: TestModule,
+      retry_on_exists: true
+    ]
+
+    {:ok, pid} = GenConsumer.start_link(args)
+
+    assert capture_log(fn ->
+      {:ok, pid} = GenConsumer.start_link(args)
+    end)=~ ~r/retry/
   end
 end

@@ -18,6 +18,7 @@ defmodule Kashka.GenConsumer do
           | {:consumer_opts, %{}}
           | {:records_opts, %{}}
           | {:delete_on_exists, boolean()}
+          | {:retry_on_exists, boolean()}
           | any()
         ]
 
@@ -48,29 +49,37 @@ defmodule Kashka.GenConsumer do
   @impl true
   def init(opts) do
     opts = load_defaults(opts)
-    name = Map.get(opts, :name)
     Process.flag(:trap_exit, true)
+    st = %__MODULE__{conn: opts.url, name: opts.name, opts: opts}
+    {:ok, do_init(st)}
+  end
 
-    state = %__MODULE__{conn: opts.url, name: name, opts: opts}
-    {:ok, conn, base_uri} = create_consumer(state)
+  defp do_init(st) do
+    case create_consumer(st) do
+      {:ok, conn, base_uri} ->
+        Logger.info("Consumer with base uri #{base_uri} created")
 
-    Logger.info("Consumer with base uri #{base_uri} created")
+        {:ok, conn} =
+          Http.reconnect_to(conn, base_uri)
+          |> Kafka.subscribe(st.opts.topics)
 
-    {:ok, conn} =
-      Http.reconnect_to(conn, base_uri)
-      |> Kafka.subscribe(opts.topics)
+        Logger.info("Consumer #{st.name} subscribed to topics #{inspect(st.opts.topics)}")
 
-    Logger.info("Consumer #{name} subscribed to topics #{inspect(opts.topics)}")
+        {:ok, conn, internal_state} =
+          if function_exported?(st.opts.module, :init, 2) do
+            st.opts.module.init(conn, st.opts)
+          else
+            {:ok, conn, st.opts}
+          end
 
-    {:ok, conn, internal_state} =
-      if function_exported?(opts.module, :init, 2) do
-        opts.module.init(conn, opts)
-      else
-        {:ok, conn, opts}
-      end
+        Process.send(self(), :timeout, [])
 
-    st = %{state | conn: conn, internal_state: internal_state}
-    {:ok, st, 0}
+        %{st | conn: conn, internal_state: internal_state}
+
+      :retry ->
+        Process.send_after(self(), :init, 5000)
+        st
+    end
   end
 
   @impl true
@@ -83,6 +92,10 @@ defmodule Kashka.GenConsumer do
   end
 
   @impl true
+  def handle_info(:init, st) do
+    {:noreply, do_init(st)}
+  end
+
   def handle_info(:timeout, state) do
     Logger.debug("Going to request records")
 
@@ -93,6 +106,8 @@ defmodule Kashka.GenConsumer do
 
     {:ok, conn, internal_state} =
       state.opts.module.handle_message_set(conn, state.internal_state, records)
+
+    Process.send(self(), :timeout, [])
 
     {:noreply, %{state | conn: conn, internal_state: internal_state}, 0}
   end
@@ -115,14 +130,18 @@ defmodule Kashka.GenConsumer do
         {:ok, conn, base_uri}
 
       {:error, :exists} ->
-        case state.opts.delete_on_exists do
-          true ->
+        cond do
+          state.opts.delete_on_exists ->
             Logger.info("Deleting old consumer")
 
             {:ok, conn} = Kafka.delete_consumer(state.conn, state.opts.consumer_group, state.name)
             create_consumer(%{state | conn: conn})
 
-          false ->
+          state.opts.retry_on_exists ->
+            Logger.info("Consumer #{state.name} already exists. Waiting for 5 seconds and retry")
+            :retry
+
+          true ->
             raise "Consumer #{state.name} already exists"
         end
     end
@@ -148,5 +167,6 @@ defmodule Kashka.GenConsumer do
     |> Map.put(:format, format)
     |> Map.put_new(:name, random_string(10))
     |> Map.put_new(:delete_on_exists, false)
+    |> Map.put_new(:retry_on_exists, false)
   end
 end
