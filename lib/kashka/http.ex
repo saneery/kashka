@@ -81,9 +81,15 @@ defmodule Kashka.Http do
 
     case HTTP.request(conn, method, full_path, new_headers, body) do
       {:ok, conn, _request_ref} ->
-        {:ok, conn, response} = receive_all_response(conn, timeout)
-        {:ok, status, body} = get_status_and_body(response)
-        {:ok, %{st | mint: conn}, status, body}
+        case receive_all_response(conn, timeout) do
+          {:ok, conn, response} ->
+            {:ok, status, body} = get_status_and_body(response)
+            {:ok, %{st | mint: conn}, status, body}
+
+          {:error, conn, %Mint.HTTPError{reason: {:server_closed_connection, _, _}} = error, _} ->
+            Logger.info("server_closed_connection error: #{inspect error}. Retry") 
+            request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
+        end
 
       {:error, _conn, %Mint.HTTPError{reason: :closed}} ->
         request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
