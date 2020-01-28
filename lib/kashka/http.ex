@@ -18,7 +18,8 @@ defmodule Kashka.Http do
             headers: [],
             fix_schema: false,
             fix_port: false,
-            fix_host: false
+            fix_host: false,
+            keepalive: true
 
   @type t :: %Kashka.Http{
           uri: URI.t(),
@@ -26,7 +27,8 @@ defmodule Kashka.Http do
           headers: [],
           fix_schema: boolean(),
           fix_port: boolean(),
-          fix_host: boolean()
+          fix_host: boolean(),
+          keepalive: boolean()
         }
 
   @type args :: String.t() | Keyword.t()
@@ -85,10 +87,10 @@ defmodule Kashka.Http do
           {:ok, conn, response} ->
             {:ok, status, body} = get_status_and_body(response)
             st = %{st | mint: conn}
-            close(st)
+            unless st.keepalive, do: close(st)
             {:ok, st, status, body}
 
-          {:error, conn, %Mint.HTTPError{reason: {:server_closed_connection, _, _}} = error, _} ->
+          {:error, _conn, %Mint.HTTPError{reason: {:server_closed_connection, _, _}} = error, _} ->
             Logger.info("server_closed_connection error: #{inspect(error)}. Retry")
             request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
         end
@@ -189,7 +191,8 @@ defmodule Kashka.Http do
       headers: Keyword.get(args, :headers, []),
       fix_host: Keyword.get(args, :fix_host, false),
       fix_port: Keyword.get(args, :fix_port, false),
-      fix_schema: Keyword.get(args, :fix_schema, false)
+      fix_schema: Keyword.get(args, :fix_schema, false),
+      keepalive: Keyword.get(args, :keepalive, true)
     }
   end
 
