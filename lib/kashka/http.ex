@@ -115,6 +115,7 @@ defmodule Kashka.Http do
   @spec connect(args()) :: t()
   def connect(smth) do
     st = build_state(smth)
+    Logger.info("Connection with kafka #{inspect st} prepared")
     %{st | mint: mint_connect(st.uri)}
   end
 
