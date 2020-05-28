@@ -142,6 +142,7 @@ defmodule Kashka.GenConsumerTest do
 
     GenServer.stop(pid)
   end
+
   test "retry_on_exists", %{topic: topic} do
     args = [
       url: @url,
@@ -155,7 +156,7 @@ defmodule Kashka.GenConsumerTest do
     {:ok, _} = GenConsumer.start_link(args)
 
     assert capture_log(fn ->
-      {:ok, _} = GenConsumer.start_link(args)
-    end)=~ ~r/retry/
+             {:ok, _} = GenConsumer.start_link(args)
+           end) =~ ~r/retry/
   end
 end

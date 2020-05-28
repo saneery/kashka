@@ -60,9 +60,10 @@ defmodule Kashka.HttpTest do
     assert_receive %{headers: ["127.0.0.1:8811"], path: "/v1"}
 
     assert {:ok, conn, 200, body} =
-      conn
-      |> Http.append_path("smth")
-      |> Http.request("GET", "v1", [], "")
+             conn
+             |> Http.append_path("smth")
+             |> Http.request("GET", "v1", [], "")
+
     assert_receive %{headers: ["127.0.0.1:8811"], path: "/smth/v1"}
   end
 end
