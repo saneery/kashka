@@ -2,13 +2,49 @@
 
 Elixir kafka rest proxy client https://docs.confluent.io/current/kafka-rest/index.html
 
-## Testing
-
-Run zookeeper, kafka and kafka rest proxy with `docker-compose up`. Then run `mix test`
-
 ## Examples
 
-See tests for examples
+### Produce
+```
+{:ok, conn} = Kafka.produce("http://localhost:8082/", "topic_name', [%{value: %{foo: "bar"}}])
+:ok == Kafka.close(conn)
+```
+### Consume
+
+```
+defmodule TestModule do
+  @behaviour Kashka.GenConsumer
+
+  def init(conn, _args) do
+    {:ok, conn, :state}
+  end
+
+  def handle_message_set(conn, :state, message_set) do
+    IO.inspect(message_set)
+
+    #[%{"key" => nil, "offset" => 0, "partition" => 0, "topic" => "test_name", "value" => %{"foo" => "bar"}}]
+
+    {:ok, conn, :state}
+  end
+end
+
+args = [
+  url: "http://localhost:8082/",
+  name: "my",
+  consumer_group: "consumer_group",
+  topics: ["topic_name"],
+  module: TestModule,
+  delete_on_exists: false,
+  retry_on_exists: true,
+  consumer_opts: %{"auto.offset.reset": :earliest, "auto.commit.enable": true},
+]
+
+{:ok, pid} = GenConsumer.start_link(args)
+```
+
+### More
+
+See tests for more examples
 
 ### Kafka URL explanation
 
@@ -22,21 +58,23 @@ Examples:
 [url: "http://127.0.0.1", fix_port: true, fix_schema: true, fix_host: true, headers: [{"host", "smth.com"}]]
 ```
 
-`fix_*` keys can be used with automatically preprocess the url returned from create consumer method. For example url
+`fix_*` keys used to automatically preprocess the url returned from create consumer method. For example url
 
 ```
-"https://smth.com:443/comsumers/group/instances/name"
+"https://smth1.com:443/comsumers/group/instances/name"
 ```
 
 will be transformed to
 ```
-"http://127.0.0.1:80/comsumers/group/instances/name" with host header "smth.com"
+"http://127.0.0.1:80/comsumers/group/instances/name" with host header "smth1.com"
 ```
+
+It can be helpfull while connecting to kafka resp api through nginx proxy
 
 ## How to run tests
 
-# run `doker-compose up` in separate window
-# run `mix test`
+* run `doker-compose up` in separate window
+* run `mix test`
 
 ## TODO
 
