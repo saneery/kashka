@@ -120,7 +120,7 @@ defmodule Kashka.Http do
   end
 
   defp mint_connect(uri) do
-    Logger.debug("Going to reconnect")
+    Logger.debug("Going to (re)connect")
 
     case uri.scheme do
       "http" ->

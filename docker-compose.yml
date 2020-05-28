@@ -2,13 +2,14 @@ version: '3'
 
 services:
   rest:
-    image: docker.funbox.ru/fb-kafka-rest 
+    image: confluentinc/cp-kafka-rest 
     ports:
       - 8082:8082
     depends_on:
       - zookeeper
       - kafka
     environment:
+      KAFKA_REST_HOST_NAME: localhost
       KAFKA_REST_ID: kafkarest
       KAFKA_REST_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_REST_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
