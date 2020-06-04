@@ -1,7 +1,7 @@
 defmodule Kashka.Kafka do
   @moduledoc """
   Module to make direct requests to Kafka Rest Proxy.
-  Use https://docs.confluent.io/current/kafka-rest/api.html to figure out how to use
+  Use [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html) to figure out how to use
   """
 
   @content {"Content-Type", "application/vnd.kafka.v2+json"}
@@ -17,10 +17,46 @@ defmodule Kashka.Kafka do
 
   @type http_error :: {:error, :http, code :: non_neg_integer(), iodata()}
 
+  @type partition :: %{
+          topic: String.t() | atom(),
+          partition: integer()
+        }
+
+  @type json_records :: %{
+          required(:key) => String.t(),
+          required(:value) => any(),
+          optional(:partition) => integer()
+        }
+
+  @type binary_records :: %{
+          required(:key) => String.t(),
+          required(:value) => String.t(),
+          optional(:partition) => integer()
+        }
+
+  @type records_query_params :: %{
+          optional(:timeout) => integer(),
+          optional(:max_bytes) => integer()
+        }
+
+  @type create_consumer_params :: %{
+    optional(:name) => String.t(),
+    optional(:format) => :binary | :json,
+    optional(:"auto.offset.reset") => :earliest | :latest,
+    optional(:"auto.commit.enable") => true | false,
+    optional(:"fetch.min.bytes") => integer(),
+    optional(:"consumer.request.timeout.ms") => integer(),
+  }
+
   @doc """
   Requests all topics list
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#get--topics)
+
+  ## Parameters
+
+    - conn: connection or url for rest proxy
   """
-  @spec topics(Http.t()) :: {:ok, Http.t(), %{}} | http_error()
+  @spec topics(Http.conn()) :: {:ok, Http.t(), [String.t()]} | http_error()
   def topics(conn) do
     with {:ok, conn, data} <- request(conn, "GET", "topics", [@accept], "") do
       {:ok, conn, Jason.decode!(data)}
@@ -29,14 +65,14 @@ defmodule Kashka.Kafka do
 
   @doc """
   Requests offsets for consumer.
-  See https://docs.confluent.io/current/kafka-rest/api.html#get--consumers-(string-group_name)-instances-(string-instance)-offsets
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#get--consumers-(string-group_name)-instances-(string-instance)-offsets)
 
   ## Parameters
 
     - conn: connection or url for created consumer
-    - partitions: list of `%{topic: "test", partition: 0}` maps
+    - partitions: a list of partitions like `[%{topic: "test", partition: 0}]`
   """
-  @spec offsets(Http.t(), %{}) :: {:ok, Http.t(), %{}} | http_error()
+  @spec offsets(Http.conn(), [partition()]) :: {:ok, Http.t(), [any()]} | http_error()
   def offsets(conn, partitions) do
     data = Jason.encode!(%{partitions: partitions})
 
@@ -46,7 +82,15 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec assignments(Http.t()) :: {:ok, Http.t(), %{}} | http_error()
+  @doc """
+  Get the list of partitions currently manually assigned to this consumer.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#get--consumers-(string-group_name)-instances-(string-instance)-assignments)
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+  """
+  @spec assignments(Http.t()) :: {:ok, Http.t(), [any()]} | http_error()
   def assignments(conn) do
     with {:ok, conn, data} <- request(conn, "GET", "assignments", [@accept], "") do
       partitions = Jason.decode!(data) |> Map.get("partitions")
@@ -54,7 +98,15 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec positions_end(Http.t(), %{}) :: {:ok, Http.t()} | http_error()
+  @doc """
+  Seek to the last offset for each of the given partitions.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#post--consumers-(string-group_name)-instances-(string-instance)-positions-end)
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+  """
+  @spec positions_end(Http.t(), [partition()]) :: {:ok, Http.t()} | http_error()
   def positions_end(conn, partitions) do
     data = Jason.encode!(%{partitions: partitions})
 
@@ -63,7 +115,16 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec commit(Http.t(), %{} | nil) :: {:ok, Http.t()} | http_error()
+  @doc """
+  Commit a list of offsets for the consumer.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#post--consumers-(string-group_name)-instances-(string-instance)-offsets)
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+    - offsets_or_records: offsets list or records returned from `get_records/3`
+  """
+  @spec commit(Http.conn(), [map()] | nil) :: {:ok, Http.t()} | http_error()
   def commit(conn, offsets_or_records \\ nil) do
     body =
       case offsets_or_records do
@@ -76,7 +137,18 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec produce(Http.t(), String.t(), [%{}], :json | :binary) :: {:ok, Http.t()} | http_error()
+  @doc """
+  Produce messages to a topic.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#post--topics-(string-topic_name))
+
+  ## Parameters
+
+    - conn: connection or url for rest proxy
+    - topic: topic name
+    - records: records list
+    - format: records format json or binary
+  """
+  @spec produce(Http.conn(), String.t(), [json_records() | binary_records()], :json | :binary) :: {:ok, Http.t()} | http_error()
   def produce(conn, topic, records, format \\ :json)
 
   def produce(conn, topic, records, :json) when is_list(records) do
@@ -105,7 +177,17 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec get_records(Http.t(), %{}, :json | :binary) :: {:ok, Http.t(), [%{}]} | http_error()
+  @doc """
+  Produce messages to a topic.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#get--consumers-(string-group_name)-instances-(string-instance)-records)
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+    - opts: query Parameters
+    - format: created consumer records format: json or binary
+  """
+  @spec get_records(Http.conn(), records_query_params(), :json | :binary) :: {:ok, Http.t(), [map()]} | http_error()
   def get_records(conn, opts, format \\ :json)
 
   def get_records(conn, opts, :json) do
@@ -134,15 +216,33 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec create_consumer(Kashka.Http.t(), String.t(), map()) ::
+  @doc """
+  Create a new consumer instance in the consumer group.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#post--consumers-(string-group_name))
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+    - consumer_group: the name of the consumer group to join
+    - opts: consumer settings
+
+  Returns map with "base_uri" and "instance_id" fields. For example:
+  ```
+    %{
+      "instance_id" => "my_consumer",
+      "base_uri" => "http://proxy-instance.kafkaproxy.example.com/consumers/testgroup/instances/my_consumer"
+    }
+  ```
+  """
+  @spec create_consumer(Kashka.Http.t(), String.t(), create_consumer_params()) ::
           {:ok, Kashka.Http.t(), map()} | {:error, :exists} | http_error()
   def create_consumer(conn, consumer_group, opts) do
     body = Jason.encode!(opts)
     path = Path.join(["consumers", consumer_group])
 
     case Http.request(conn, "POST", path, [@content], body) do
-      {:ok, conn, 200, data} ->
-        {:ok, conn, Jason.decode!(data)}
+      {:ok, conn, 200, json} ->
+        {:ok, conn, Jason.decode!(json)}
 
       {:ok, conn, 409, _data} ->
         close(conn)
@@ -154,6 +254,14 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @doc """
+  Destroy the consumer instance.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#delete--consumers-(string-group_name)-instances-(string-instance))
+
+  ## Parameters
+
+    - conn: connection or url for created consumer
+  """
   @spec delete_consumer(Kashka.Http.t()) :: {:ok, Kashka.Http.t()} | http_error()
   def delete_consumer(conn) do
     with {:ok, conn, _} <- request(conn, "DELETE", "", [@content], "") do
@@ -161,6 +269,17 @@ defmodule Kashka.Kafka do
     end
   end
 
+  @doc """
+  Destroy the consumer instance.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#delete--consumers-(string-group_name)-instances-(string-instance)).
+  This function mostly used in tests when there is only one kafka rest proxy instance.
+
+  ## Parameters
+
+    - conn: connection or url for rest proxy instance
+    - group: consumer group name
+    - name: consumer instance_id
+  """
   @spec delete_consumer(Kashka.Http.t(), String.t(), String.t()) ::
           {:ok, Kashka.Http.t()} | http_error()
   def delete_consumer(conn, group, name) do
@@ -171,7 +290,16 @@ defmodule Kashka.Kafka do
     end
   end
 
-  @spec subscribe(Kashka.Http.t(), [%{}]) :: {:ok, Kashka.Http.t()} | http_error
+  @doc """
+  Subscribe to the given list of topics.
+  See [Confluent REST Proxy API Reference](https://docs.confluent.io/current/kafka-rest/api.html#post--consumers-(string-group_name)-instances-(string-instance)-subscription)
+
+  ## Parameters
+
+    - conn: connection or url for rest proxy
+    - topics: a list of topics to subscribe
+  """
+  @spec subscribe(Kashka.Http.t(), [String.t()]) :: {:ok, Kashka.Http.t()} | http_error
   def subscribe(conn, topics) when is_list(topics) do
     data = Jason.encode!(%{"topics" => topics})
 
@@ -181,13 +309,23 @@ defmodule Kashka.Kafka do
   end
 
   @doc """
-  This function mostly used in tests when there is only one kafka rest proxy node
+  Build connection to exsisting consumer. 
+  This function mostly used in tests when there is only one kafka rest proxy instance
+
+  ## Parameters
+
+    - conn: connection or url for rest proxy instance
+    - group: consumer group name
+    - name: consumer instance_id
   """
   @spec move_to_existing_consumer(Kashka.Http.t(), String.t(), String.t()) :: Kashka.Http.t()
   def move_to_existing_consumer(conn, group, name) do
     Http.append_path(conn, Path.join(["consumers", group, "instances", name]))
   end
 
+  @doc """
+  Close HTTP connection.
+  """
   @spec close(Kashka.Http.t()) :: :ok
   def close(conn) do
     Http.close(conn)

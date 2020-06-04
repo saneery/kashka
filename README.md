@@ -1,6 +1,6 @@
 # KafkaRest
 
-Elixir kafka rest proxy client https://docs.confluent.io/current/kafka-rest/index.html
+Elixir kafka rest proxy client [Confluent REST Proxy](https://docs.confluent.io/current/kafka-rest/index.html)
 
 ## Examples
 
@@ -55,19 +55,15 @@ Examples:
 ```
 [url: "http://127.0.0.1:8811", headers: [{"host", "smth.com"}]]
 
+```
+
+With `fix_* keys`:
+```
 [url: "http://127.0.0.1", fix_port: true, fix_schema: true, fix_host: true, headers: [{"host", "smth.com"}]]
 ```
 
-`fix_*` keys used to automatically preprocess the url returned from create consumer method. For example url
-
-```
-"https://smth1.com:443/comsumers/group/instances/name"
-```
-
-will be transformed to
-```
-"http://127.0.0.1:80/comsumers/group/instances/name" with host header "smth1.com"
-```
+`fix_*` keys used to automatically preprocess the url returned from create consumer method. For example if create_consumer method returns 
+`https://smth1.com:443/comsumers/group/instances/name` as a base_uri, it is transformed to `http://127.0.0.1:80/comsumers/group/instances/name` with host header `smth1.com`
 
 It can be helpfull while connecting to kafka resp api through nginx proxy
 

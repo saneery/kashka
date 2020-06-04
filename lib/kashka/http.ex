@@ -1,9 +1,10 @@
 defmodule Kashka.Http do
   @moduledoc """
-  Specialized wrapper around Mint library
+  Helper module-wrapper around Mint
   """
 
   @https_connect_opts [transport_opts: [verify: :verify_none]]
+  @http_timeout Application.get_env(:kashka, :http_timeout, 20000)
 
   defmodule TimeoutException do
     defexception message: "Kafka Rest API response timeout"
@@ -24,14 +25,27 @@ defmodule Kashka.Http do
   @type t :: %Kashka.Http{
           uri: URI.t(),
           mint: Mint.HTTP.t(),
-          headers: [],
+          headers: Mint.Types.headers(),
           fix_schema: boolean(),
           fix_port: boolean(),
           fix_host: boolean(),
           keepalive: boolean()
         }
 
-  @type args :: String.t() | Keyword.t()
+  @type url :: String.t()
+
+  @type url_with_opts :: [
+          url: url(),
+          headers: Mint.Types.headers(),
+          fix_host: boolean(),
+          fix_port: boolean(),
+          fix_schema: boolean(),
+          keepalive: boolean()
+        ]
+
+  @type args :: url() | url_with_opts()
+
+  @type conn :: Kashka.Http.t() | Kashka.Http.args()
 
   @spec close(t()) :: :ok
   def close(%__MODULE__{mint: conn}) do
@@ -70,7 +84,7 @@ defmodule Kashka.Http do
           non_neg_integer
         ) ::
           {:ok, t(), non_neg_integer(), iodata()}
-  def request(state, method, path, headers, body, timeout \\ 20000)
+  def request(state, method, path, headers, body, timeout \\ @http_timeout)
 
   def request(%__MODULE__{uri: uri, mint: conn} = st, method, path, headers, body, timeout) do
     full_path = Path.join(uri.path || "/", path)
