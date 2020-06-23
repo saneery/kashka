@@ -32,7 +32,7 @@ end
 
 args = [
   url: "http://localhost:8082/",
-  name: "my",
+  instance_id: "my",
   consumer_group: "consumer_group",
   topics: ["topic_name"],
   module: TestModule,
