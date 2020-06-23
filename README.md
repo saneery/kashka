@@ -1,6 +1,6 @@
 # KafkaRest
 
-Elixir kafka rest proxy client [Confluent REST Proxy](https://docs.confluent.io/current/kafka-rest/index.html)
+Elixir kafka rest proxy client for [Confluent REST Proxy](https://docs.confluent.io/current/kafka-rest/index.html)
 
 ## Examples
 
