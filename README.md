@@ -6,9 +6,11 @@ Elixir kafka rest proxy client for [Confluent REST Proxy](https://docs.confluent
 
 ### Produce
 ```
-{:ok, conn} = Kafka.produce("http://localhost:8082/", "topic_name', [%{value: %{foo: "bar"}}])
-:ok == Kafka.close(conn)
+{:ok, conn} = Kashka.Kafka.produce("http://localhost:8082/", "topic_name', [%{value: %{foo: "bar"}}])
+:ok == Kashka.Kafka.close(conn)
 ```
+See `Kashka.Kafka.produce/4` for details
+
 ### Consume
 
 ```
@@ -41,10 +43,11 @@ args = [
 
 {:ok, pid} = GenConsumer.start_link(args)
 ```
+See `Kashka.GenConsumer` for details
 
 ### More
 
-See tests for more examples
+See [tests](https://github.com/funbox/kashka/blob/master/test/kashka/gen_consumer_test.exs) for more examples
 
 ### Kafka URL explanation
 
@@ -76,6 +79,5 @@ It can be helpfull while connecting to kafka resp api through nginx proxy
 
 * Make protection from endless loop in Kashka.Http.request
 * Correctly process other errors in Kashka.Http.request
-* Add documentation
 
 [![Sponsored by FunBox](https://funbox.ru/badges/sponsored_by_funbox_compact.svg)](https://funbox.ru)
