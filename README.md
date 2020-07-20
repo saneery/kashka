@@ -1,19 +1,21 @@
-# KafkaRest
+# Kashka
 
-Elixir kafka rest proxy client for [Confluent REST Proxy](https://docs.confluent.io/current/kafka-rest/index.html)
+Elixir Kafka REST proxy client for [Confluent REST Proxy](https://docs.confluent.io/current/kafka-rest/index.html).
 
 ## Examples
 
 ### Produce
-```
+
+```elixir
 {:ok, conn} = Kashka.Kafka.produce("http://localhost:8082/", "topic_name', [%{value: %{foo: "bar"}}])
 :ok == Kashka.Kafka.close(conn)
 ```
-See `Kashka.Kafka.produce/4` for details
+
+See `Kashka.Kafka.produce/4` for details.
 
 ### Consume
 
-```
+```elixir
 defmodule TestModule do
   @behaviour Kashka.GenConsumer
 
@@ -43,41 +45,45 @@ args = [
 
 {:ok, pid} = GenConsumer.start_link(args)
 ```
-See `Kashka.GenConsumer` for details
+
+See `Kashka.GenConsumer` for details.
 
 ### More
 
-See [tests](https://github.com/funbox/kashka/blob/master/test/kashka/gen_consumer_test.exs) for more examples
+See [tests](https://github.com/funbox/kashka/blob/master/test/kashka/gen_consumer_test.exs) for more examples.
 
 ### Kafka URL explanation
 
-Kafka URL can be a String or a Keyword list. Keyword list can contains url, headers, fix_schema, fix_port, fix_host keys.
+Kafka URL can be a String or a Keyword list. Keyword list can contain `url`, `headers`, `fix_schema`, `fix_port`, `fix_host` keys.
 
 Examples:
 
-```
+```elixir
 [url: "http://127.0.0.1:8811", headers: [{"host", "smth.com"}]]
-
 ```
 
 With `fix_* keys`:
-```
+
+```elixir
 [url: "http://127.0.0.1", fix_port: true, fix_schema: true, fix_host: true, headers: [{"host", "smth.com"}]]
 ```
 
-`fix_*` keys used to automatically preprocess the url returned from create consumer method. For example if create_consumer method returns 
-`https://smth1.com:443/comsumers/group/instances/name` as a base_uri, it is transformed to `http://127.0.0.1:80/comsumers/group/instances/name` with host header `smth1.com`
+`fix_*` keys used to automatically preprocess the URL returned from the consumer creation method. 
 
-It can be helpfull while connecting to kafka resp api through nginx proxy
+For example if `create_consumer` method returns 
+`https://smth1.com:443/comsumers/group/instances/name` as a `base_uri`, 
+it is transformed to `http://127.0.0.1:80/comsumers/group/instances/name` with host header `smth1.com`.
+
+It can be helpful while connecting to Kafka REST API through Nginx proxy.
 
 ## How to run tests
 
-* run `doker-compose up` in separate window
-* run `mix test`
+1. Run `doker-compose up`.
+2. Run `mix test` in separate terminal.
 
-## TODO
+## Roadmap
 
-* Make protection from endless loop in Kashka.Http.request
-* Correctly process other errors in Kashka.Http.request
+* Make protection from endless loop in `Kashka.Http.request`.
+* Correctly process other errors in `Kashka.Http.request`.
 
-[![Sponsored by FunBox](https://funbox.ru/badges/sponsored_by_funbox_compact.svg)](https://funbox.ru)
+[![Sponsored by FunBox](https://funbox.ru/badges/sponsored_by_funbox_centered.svg)](https://funbox.ru)
