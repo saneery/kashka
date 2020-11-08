@@ -21,7 +21,7 @@ defmodule Kashka.Http do
             fix_port: false,
             fix_host: false,
             keepalive: true,
-            protocols: [:http1, :http2]
+            protocols: :any
 
   @type t :: %Kashka.Http{
           uri: URI.t(),
@@ -31,7 +31,7 @@ defmodule Kashka.Http do
           fix_port: boolean(),
           fix_host: boolean(),
           keepalive: boolean(),
-          protocols: list(atom())
+          protocols: :http1 | :http2 | :any
         }
 
   @type url :: String.t()
@@ -43,7 +43,7 @@ defmodule Kashka.Http do
           fix_port: boolean(),
           fix_schema: boolean(),
           keepalive: boolean(),
-          protocols: list(atom())
+          protocols: :http1 | :http2 | :any
         ]
 
   @type args :: url() | url_with_opts()
@@ -57,7 +57,7 @@ defmodule Kashka.Http do
   end
 
   @spec reconnect_to(t(), String.t()) :: %__MODULE__{}
-  def reconnect_to(%__MODULE__{uri: uri, mint: conn, protocols: protocols} = state, url) do
+  def reconnect_to(%__MODULE__{uri: uri, mint: conn} = state, url) do
     HTTP.close(conn)
 
     s = %{state | mint: nil, uri: URI.parse(url)}
@@ -71,7 +71,7 @@ defmodule Kashka.Http do
         s
       end
 
-    %{s | mint: mint_connect(s.uri, protocols)}
+    %{s | mint: mint_connect(s.uri, s.protocols)}
   end
 
   def append_path(%__MODULE__{uri: uri} = state, path) do
@@ -145,8 +145,16 @@ defmodule Kashka.Http do
         conn
 
       "https" ->
-        {:ok, conn} = HTTP.connect(:https, uri.host, uri.port, Keyword.merge(@https_connect_opts, protocols: protocols))
+        {:ok, conn} = HTTP.connect(:https, uri.host, uri.port, build_https_connect_opts(protocols))
         conn
+    end
+  end
+
+  defp build_https_connect_opts(protocols) do
+    if protocols == :any do
+      @https_connect_opts
+    else
+      Keyword.put_new(@https_connect_opts, :protocols, [protocols])
     end
   end
 
@@ -210,7 +218,8 @@ defmodule Kashka.Http do
       fix_host: Keyword.get(args, :fix_host, false),
       fix_port: Keyword.get(args, :fix_port, false),
       fix_schema: Keyword.get(args, :fix_schema, false),
-      keepalive: Keyword.get(args, :keepalive, true)
+      keepalive: Keyword.get(args, :keepalive, true),
+      protocols: Keyword.get(args, :protocols, :any)
     }
   end
 
