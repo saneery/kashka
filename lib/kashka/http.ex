@@ -20,7 +20,8 @@ defmodule Kashka.Http do
             fix_schema: false,
             fix_port: false,
             fix_host: false,
-            keepalive: true
+            keepalive: true,
+            protocols: [:http1, :http2]
 
   @type t :: %Kashka.Http{
           uri: URI.t(),
@@ -29,7 +30,8 @@ defmodule Kashka.Http do
           fix_schema: boolean(),
           fix_port: boolean(),
           fix_host: boolean(),
-          keepalive: boolean()
+          keepalive: boolean(),
+          protocols: list(atom())
         }
 
   @type url :: String.t()
@@ -40,7 +42,8 @@ defmodule Kashka.Http do
           fix_host: boolean(),
           fix_port: boolean(),
           fix_schema: boolean(),
-          keepalive: boolean()
+          keepalive: boolean(),
+          protocols: list(atom())
         ]
 
   @type args :: url() | url_with_opts()
@@ -54,7 +57,7 @@ defmodule Kashka.Http do
   end
 
   @spec reconnect_to(t(), String.t()) :: %__MODULE__{}
-  def reconnect_to(%__MODULE__{uri: uri, mint: conn} = state, url) do
+  def reconnect_to(%__MODULE__{uri: uri, mint: conn, protocols: protocols} = state, url) do
     HTTP.close(conn)
 
     s = %{state | mint: nil, uri: URI.parse(url)}
@@ -68,7 +71,7 @@ defmodule Kashka.Http do
         s
       end
 
-    %{s | mint: mint_connect(s.uri)}
+    %{s | mint: mint_connect(s.uri, protocols)}
   end
 
   def append_path(%__MODULE__{uri: uri} = state, path) do
@@ -106,14 +109,14 @@ defmodule Kashka.Http do
 
           {:error, _conn, %Mint.HTTPError{reason: {:server_closed_connection, _, _}} = error, _} ->
             Logger.info("server_closed_connection error: #{inspect(error)}. Retry")
-            request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
+            request(%{st | mint: mint_connect(st.uri, st.protocols)}, method, path, headers, body, timeout)
         end
 
       {:error, _conn, %Mint.HTTPError{reason: :closed}} ->
-        request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
+        request(%{st | mint: mint_connect(st.uri, st.protocols)}, method, path, headers, body, timeout)
 
       {:error, _conn, %Mint.TransportError{reason: :closed}} ->
-        request(%{st | mint: mint_connect(st.uri)}, method, path, headers, body, timeout)
+        request(%{st | mint: mint_connect(st.uri, st.protocols)}, method, path, headers, body, timeout)
     end
   end
 
@@ -130,10 +133,10 @@ defmodule Kashka.Http do
   def connect(smth) do
     st = build_state(smth)
     Logger.info("Connection with kafka #{inspect(st)} prepared")
-    %{st | mint: mint_connect(st.uri)}
+    %{st | mint: mint_connect(st.uri, st.protocols)}
   end
 
-  defp mint_connect(uri) do
+  defp mint_connect(uri, protocols) do
     Logger.debug("Going to (re)connect")
 
     case uri.scheme do
@@ -142,7 +145,7 @@ defmodule Kashka.Http do
         conn
 
       "https" ->
-        {:ok, conn} = HTTP.connect(:https, uri.host, uri.port, @https_connect_opts)
+        {:ok, conn} = HTTP.connect(:https, uri.host, uri.port, Keyword.merge(@https_connect_opts, protocols: protocols))
         conn
     end
   end
