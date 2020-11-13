@@ -76,6 +76,9 @@ it is transformed to `http://127.0.0.1:80/comsumers/group/instances/name` with h
 
 It can be helpful while connecting to Kafka REST API through Nginx proxy.
 
+`protocols:` option can be used for explicit specification of HTTP protocols negotiation with Kafka REST server.
+It can take the following values: `:http1`, `:http2` or `:any` by default.
+
 ## How to run tests
 
 1. Run `doker-compose up`.
