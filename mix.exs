@@ -30,7 +30,8 @@ defmodule Kashka.MixProject do
 
   defp deps do
     [
-      {:mint, "~> 0.4.0"},
+      {:castore, "~> 0.1.0"},
+      {:mint, "~> 1.0"},
       {:jason, "~> 1.1"},
       {:ex_doc, "~> 0.21", only: :dev, runtime: false},
       {:dialyxir, "~> 0.5.1", only: :dev},
