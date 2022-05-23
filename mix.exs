@@ -4,7 +4,7 @@ defmodule Kashka.MixProject do
   def project do
     [
       app: :kashka,
-      version: "0.2.0",
+      version: "0.3.0",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       source_url: "https://github.com/funbox/kashka",
@@ -33,7 +33,8 @@ defmodule Kashka.MixProject do
       {:castore, "~> 0.1.0"},
       {:mint, "~> 1.0"},
       {:jason, "~> 1.1"},
-      {:ex_doc, "~> 0.21", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.28.4", only: :dev, runtime: false},
+      {:earmark, "~> 1.4", only: :dev, runtime: false},
       {:dialyxir, "~> 0.5.1", only: :dev},
       {:credo, "~> 1.1.2", only: :dev, runtime: false},
       {:excoveralls, "~> 0.11.2", only: :test},
@@ -53,7 +54,7 @@ defmodule Kashka.MixProject do
     [
       name: :kashka,
       files: ["lib", "mix.exs", "README*"],
-      maintainers: ["Denis Kirichenko"],
+      maintainers: ["FunBox"],
       licenses: ["MIT"],
       links: %{
         "GitHub" => "https://github.com/funbox/kashka"
