@@ -23,13 +23,13 @@ defmodule Kashka.Kafka do
         }
 
   @type json_records :: %{
-          required(:key) => String.t(),
+          optional(:key) => String.t(),
           required(:value) => any(),
           optional(:partition) => integer()
         }
 
   @type binary_records :: %{
-          required(:key) => String.t(),
+          optional(:key) => String.t(),
           required(:value) => String.t(),
           optional(:partition) => integer()
         }
@@ -309,7 +309,7 @@ defmodule Kashka.Kafka do
   end
 
   @doc """
-  Build connection to exsisting consumer. 
+  Build connection to exsisting consumer.
   This function mostly used in tests when there is only one kafka rest proxy instance
 
   ## Parameters
